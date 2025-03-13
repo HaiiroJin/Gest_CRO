@@ -11,14 +11,10 @@ return new class extends Migration
      */
     public function up()
 {
-    Schema::create('attestation_travail', function (Blueprint $table) {
-        $table->id();
-        $table->foreignId('fonctionaire_id')->constrained('fonctionnaires')->onDelete('cascade');
-        $table->string('nom');
-        $table->string('prenom');
-        $table->enum('status', ['en cours', 'signé', 'rejeté'])->default('en cours');
-        $table->timestamp('date_demande')->nullable();
-        $table->text('demande')->nullable();
+    Schema::table('attestation_travail', function (Blueprint $table) {
+        $table->string('motif')->nullable();
+        $table->enum('parapheur', ['en attente', 'signé'])->default('en attente');
+        $table->text('rejection_reason')->nullable();
     });
 }
 
