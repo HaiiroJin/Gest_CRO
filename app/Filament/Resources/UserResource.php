@@ -10,6 +10,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Profile;
 
@@ -58,32 +60,58 @@ class UserResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Nom d\'utilisateur')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
+                    ->label('Email')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('roles.name')
+                Tables\Columns\TextColumn::make('fonctionnaire.nom')
+                    ->label('Fonctionnaire')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Statut')
                     ->badge()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('created_at')
+                    ->color(fn ($state) => match($state) {
+                        'active' => 'success',
+                        'inactive' => 'danger',
+                        default => 'gray',
+                    }),
+                Tables\Columns\TextColumn::make('last_login_at')
+                    ->label('Dernière connexion')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'active' => 'Actif',
+                        'inactive' => 'Inactif',
+                    ]),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ForceDeleteAction::make(),
+                Tables\Actions\RestoreAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]));
     }
     
     public static function getRelations(): array

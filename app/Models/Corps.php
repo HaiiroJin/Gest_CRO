@@ -3,26 +3,37 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Corps extends Model
 {
+    use HasFactory, SoftDeletes;
+
     protected $table = 'corps';
+
     protected $fillable = [
         'libelle',
         'libelle_ar',
     ];
 
-    public function grades()
+    protected $casts = [
+        'libelle' => 'string',
+        'libelle_ar' => 'string',
+    ];
+
+    public function grades(): HasMany
     {
         return $this->hasMany(Grade::class);
     }
 
-    public function fonctionnaires()
+    public function fonctionnaires(): HasMany
     {
         return $this->hasMany(Fonctionnaire::class);
     }
     
-    public static function getOptions()
+    public static function getOptions(): array
     {
         return self::pluck('libelle', 'id')->toArray();
     }

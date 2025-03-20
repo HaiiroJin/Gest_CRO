@@ -2,15 +2,13 @@
 
 namespace App\Providers\Filament;
 
-use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\DisableBladeIconComponents;
-use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Navigation\NavigationGroup;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\Navigation\NavigationGroup;
+use Filament\Pages;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -18,14 +16,16 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\Http\Middleware\Authenticate;
+use Filament\Http\Middleware\DisableBladeIconComponents;
+use Filament\Http\Middleware\DispatchServingFilamentEvent;
 
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
         return $panel
-        ->topNavigation()
+            ->sidebarCollapsibleOnDesktop()
             ->default()
             ->id('admin')
             ->path('admin')
@@ -38,13 +38,21 @@ class AdminPanelProvider extends PanelProvider
                 'success' => Color::Emerald,
                 'warning' => Color::Orange,
             ])
+            ->brandLogo(asset('logo.png'))
+            ->brandLogoHeight('55px')
+            ->brandName("Conseil de la Région de l'Oriental")
             ->navigationGroups([
+                NavigationGroup::make()
+                    ->label('Fonctionnaires')
+                    ->items([
+                        \App\Filament\Resources\FonctionnaireResource\Pages\ManageFonctionnaires::class,
+                    ]),
                 NavigationGroup::make()
                     ->label('Gestion Ressources Humaines'),
                 NavigationGroup::make()
                     ->label('Structure Organisationnelle'),
                 NavigationGroup::make()
-                    ->label('Administration'),
+                    ->label('Admin'),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -71,7 +79,7 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->plugins([
-                FilamentShieldPlugin::make()
+                FilamentShieldPlugin::make(),
             ]);
     }
 }

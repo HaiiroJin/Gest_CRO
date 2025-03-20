@@ -4,16 +4,19 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\FonctionnaireResource\Pages;
 use App\Models\Fonctionnaire;
-use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms;
+use App\Filament\Resources\DossierFonctionnaireResource;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Table;
 use Filament\Infolists\Infolist;
-use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\Section as InfolistSection;
 use Filament\Infolists\Components\TextEntry;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class FonctionnaireResource extends Resource
 {
@@ -21,7 +24,6 @@ class FonctionnaireResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationGroup = 'Gestion Ressources Humaines';
 
     public static function form(Form $form): Form
     {
@@ -33,17 +35,22 @@ class FonctionnaireResource extends Resource
                             ->required()
                             ->maxLength(255),
                         Forms\Components\TextInput::make('prenom')
+                            ->label('Prénom')
                             ->required()
                             ->maxLength(255),
                         Forms\Components\TextInput::make('nom_ar')
+                            ->label('Nom (Arabe)')
                             ->maxLength(255),
                         Forms\Components\TextInput::make('prenom_ar')
+                            ->label('Prénom (Arabe)')
                             ->maxLength(255),
-                        Forms\Components\Select::make('civilite')
+                        Forms\Components\Radio::make('civilite')
+                            ->label('Civilité')
                             ->options([
                                 'M' => 'M',
                                 'Mme' => 'Mme',
-                            ]),
+                            ])
+                            ->columns(2),
                         Forms\Components\DatePicker::make('date_naissance')
                             ->required(),
                         Forms\Components\TextInput::make('cin')
@@ -51,19 +58,15 @@ class FonctionnaireResource extends Resource
                             ->maxLength(255),
                         Forms\Components\TextInput::make('tel')
                             ->tel()
-                            ->required()
                             ->maxLength(255),
                         Forms\Components\TextInput::make('rib')
-                            ->required()
                             ->maxLength(255)
                             ->columnSpan(2),
                         Forms\Components\TextInput::make('email')
                             ->email()
-                            ->required()
                             ->maxLength(255)
                             ->columnSpan(2),
                         Forms\Components\Textarea::make('adresse')
-                            ->required()
                             ->maxLength(255)
                             ->columnSpan('full'),
                     ])->columns(4),
@@ -95,27 +98,22 @@ class FonctionnaireResource extends Resource
                             ->searchable()
                             ->label('Corps'),
                         Forms\Components\TextInput::make('poste')
-                            ->required()
                             ->maxLength(255),
                         Forms\Components\TextInput::make('situation')
-                            ->required()
                             ->maxLength(255),
                         Forms\Components\TextInput::make('matricule_aujour')
                             ->required()
                             ->maxLength(255),
+                        Forms\Components\DatePicker::make('date_recruitement')
+                            ->required(),
+                        Forms\Components\TextInput::make('date_affectation_cro')
+                            ->required(),
                         Forms\Components\TextInput::make('solde_année_prec')
                             ->required()
                             ->maxLength(255),
                         Forms\Components\TextInput::make('solde_année_act')
                             ->required()
                             ->maxLength(255),
-                        Forms\Components\TextInput::make('solde_congé')
-                            ->required()
-                            ->maxLength(255),
-                        Forms\Components\DatePicker::make('date_recruitement')
-                            ->required(),
-                        Forms\Components\DatePicker::make('date_affectation_cro')
-                            ->required(),
                     ])->columns(2)
             ]);
     }
@@ -124,140 +122,51 @@ class FonctionnaireResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('civilite')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('nom')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('prenom')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('cin')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('nom_ar')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('prenom_ar')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('rib')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('tel')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('email')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('adresse')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('matricule_aujour')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('solde_année_prec')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('solde_année_act')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('solde_congé')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('situation')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Matricule')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('corps.libelle')
                     ->label('Corps')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('grade.libelle')
                     ->label('Grade')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('groupe.libelle')
-                    ->label('Groupe')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('direction.libelle')
-                    ->label('Direction')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('division.libelle')
-                    ->label('Division')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('service.libelle')
-                    ->label('Service')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('corps_id')
-                    ->options(\App\Models\Corps::getOptions())
-                    ->label('Corps')
-                    ->searchable()
-                    ->columnSpan('full'),
-                Tables\Filters\SelectFilter::make('grade_id')
-                    ->options(\App\Models\Grade::getOptions())
-                    ->label('Grade')
-                    ->searchable()
-                    ->columnSpan('full'),
-                Tables\Filters\SelectFilter::make('groupe_id')
-                    ->options(\App\Models\Groupe::getOptions())
-                    ->label('Groupe')
-                    ->searchable()
-                    ->columnSpan('full'),
-                Tables\Filters\SelectFilter::make('direction_id')
-                    ->options(\App\Models\Direction::getDirectionsOptions())
-                    ->label('Direction')
-                    ->searchable()
-                    ->columnSpan('full'),
-                Tables\Filters\SelectFilter::make('division_id')
-                    ->options(\App\Models\Division::getDivisionsOptions())
-                    ->label('Division')
-                    ->searchable()
-                    ->columnSpan('full'),
-                Tables\Filters\SelectFilter::make('service_id')
-                    ->options(\App\Models\Service::getServicesOptions())
-                    ->label('Service')
-                    ->searchable()
-                    ->columnSpan('full'),
+                Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ForceDeleteAction::make(),
+                Tables\Actions\RestoreAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]));
     }
 
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist
             ->schema([
-                Section::make('Informations personnelles')
+                InfolistSection::make('Informations personnelles')
                     ->schema([
                         TextEntry::make('nom')
                             ->label('Nom'),
@@ -280,9 +189,10 @@ class FonctionnaireResource extends Resource
                         TextEntry::make('email')
                             ->label('Email'),
                         TextEntry::make('adresse')
-                            ->label('Adresse'),
+                            ->label('Adresse')
+                            ->columnSpan(2),
                     ])->columns(4),
-                Section::make('Informations professionnelles')
+                InfolistSection::make('Situation administrative')
                     ->schema([
                         TextEntry::make('corps.libelle')
                             ->label('Corps'),
@@ -302,6 +212,9 @@ class FonctionnaireResource extends Resource
                             ->label('Date recruitement'),
                         TextEntry::make('date_affectation_cro')
                             ->label('Date affectation cro'),
+                    ])->columns(3),
+                InfolistSection::make('Solde')
+                    ->schema([
                         TextEntry::make('solde_année_prec')
                             ->label('Solde année préc'),
                         TextEntry::make('solde_année_act')

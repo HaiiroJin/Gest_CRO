@@ -6,23 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('divisions', function (Blueprint $table) {
             $table->id();
             $table->string('libelle');
             $table->string('libelle_ar');
-            $table->foreignId('direction_id')->constrained('directions');
+            $table->unsignedBigInteger('direction_id')->nullable();
+            $table->foreign('direction_id')
+                  ->references('id')
+                  ->on('directions')
+                  ->onDelete('set null');
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('divisions');

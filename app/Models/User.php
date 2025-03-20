@@ -7,13 +7,17 @@ use Filament\Panel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Permission\Traits\HasRoles;
 use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
-use App\Models\Fonctionnaire;
 
 class User extends Authenticatable implements FilamentUser
 {
-    use HasFactory, Notifiable, HasRoles, HasPanelShield;
+    use HasFactory, 
+        Notifiable, 
+        HasRoles, 
+        HasPanelShield,
+        SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -21,10 +25,13 @@ class User extends Authenticatable implements FilamentUser
      * @var array<int, string>
      */
     protected $fillable = [
-        'name',
+        'username',
         'email',
         'password',
         'fonctionnaire_id',
+        'status',
+        'last_login_at',
+        'last_login_ip',
     ];
 
     /**
@@ -45,6 +52,8 @@ class User extends Authenticatable implements FilamentUser
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'last_login_at' => 'datetime',
+        'status' => 'string',
     ];
 
     /**
@@ -52,7 +61,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function fonctionnaire()
     {
-        return $this->belongsTo(Fonctionnaire::class);
+        return $this->belongsTo(Fonctionnaire::class, 'fonctionnaire_id', 'id');
     }
 
     /**
@@ -60,6 +69,16 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return true; // Let FilamentShield handle permissions
+        return $this->status === 'active';
+    }
+
+    /**
+     * Update last login information
+     */
+    public function updateLastLogin($request)
+    {
+        $this->last_login_at = now();
+        $this->last_login_ip = $request->ip();
+        $this->save();
     }
 }

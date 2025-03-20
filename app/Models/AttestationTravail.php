@@ -4,37 +4,51 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Storage;
+use App\Models\Fonctionnaire;
+use App\Models\User;
 
 class AttestationTravail extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     public $timestamps = false;
 
-    protected $table = 'attestation_travail';
+    protected $table = 'attestations_travail';
 
     protected $fillable = [
-        'fonctionaire_id',
-        'nom',
-        'prenom',
+        'fonctionnaire_id',
         'status',
         'date_demande',
+        'langue',
         'demande',
+        'attestation',
+        'raison_rejection',
     ];
 
     protected $casts = [
-        'date_demande' => 'datetime',
+        'date_demande' => 'date',
         'status' => 'string',
+        'langue' => 'string',
     ];
 
     /**
-     * Relation to User (assuming fonctionaire_id is linked to users table)
+     * Relation to Fonctionnaire
+     */
+    public function fonctionnaire(): BelongsTo
+    {
+        return $this->belongsTo(Fonctionnaire::class, 'fonctionnaire_id', 'id');
+    }
+
+    /**
+     * Relation to User
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'fonctionaire_id', 'fonctionnaire_id');
+        return $this->belongsTo(User::class, 'fonctionnaire_id', 'fonctionnaire_id');
     }
 
     /**
@@ -42,7 +56,7 @@ class AttestationTravail extends Model
      */
     public function scopeForUser($query, $userId)
     {
-        return $query->where('fonctionaire_id', $userId);
+        return $query->where('fonctionnaire_id', $userId);
     }
 
     /**
@@ -54,16 +68,33 @@ class AttestationTravail extends Model
     }
 
     protected static function boot()
-{
-    parent::boot();
+    {
+        parent::boot();
 
-    static::creating(function ($attestation) {
-        $user = Filament::auth()->user();
-        $attestation->fonctionaire_id = $user->fonctionnaire_id;
-        $attestation->nom = $user->fonctionnaire->nom;
-        $attestation->prenom = $user->fonctionnaire->prenom;
-        $attestation->status = 'en cours';
-    });
-}
+        static::creating(function ($attestation) {
+            $user = Filament::auth()->user();
+            
+            // If the user is a Super Admin, use the fonctionnaire_id passed in the form
+            if ($user->hasRole('super_admin')) {
+                // Ensure the fonctionnaire_id comes from the form (this may be set before this)
+                // No automatic override for super admins
+            } else {
+                // For non-admins, set their own fonctionnaire_id
+                $attestation->fonctionnaire_id = $user->fonctionnaire_id;
+            }
 
+            // Default status to "en cours" for all new requests
+            $attestation->status = 'en cours';
+
+            // Generate attestation content when created
+            $fonctionnaire = $user->fonctionnaire;
+            $htmlContent = view('attestation-travail', [
+                'fonctionnaire' => $fonctionnaire,
+                'langue' => $attestation->langue
+            ])->render();
+
+            $attestation->attestation = $htmlContent;
+            Storage::disk('public')->put("attestations/attestation_{$fonctionnaire->id}.html", $htmlContent);
+        });
+    }
 }

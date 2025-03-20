@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Fonctionnaire extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'fonctionnaires';
     protected $fillable = [
         'nom',
@@ -32,8 +35,6 @@ class Fonctionnaire extends Model
         'service_id',
         'solde_année_prec',
         'solde_année_act',
-        'solde_congé',
-        
     ];
 
     public function direction()
@@ -74,5 +75,14 @@ class Fonctionnaire extends Model
     public function getFonctionnaireOptions()
     {
         return self::pluck('nom', 'id')->toArray();
+    }
+
+    public function getSoldeCongéAttribute()
+    {
+        return ($this->solde_année_prec ?? 0) + ($this->solde_année_act ?? 0);
+    }
+    public function dossierFonctionnaires()
+    {
+        return $this->hasMany(DossierFonctionnaire::class);
     }
 }

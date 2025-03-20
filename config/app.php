@@ -14,7 +14,6 @@ return [
     */
 
     'name' => env('APP_NAME', 'Conseil Régional de L\'Oriental'),
-
     /*
     |--------------------------------------------------------------------------
     | Application Environment

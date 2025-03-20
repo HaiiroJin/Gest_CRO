@@ -5,19 +5,22 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\AttestationTravailResource\Pages;
 use App\Models\AttestationTravail;
 use App\Models\Fonctionnaire;
-use App\Notifications\AttestationApproved;
-use App\Notifications\AttestationRejected;
+use Filament\Facades\Filament;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\DeleteAction;
-use Filament\Tables\Actions\ViewAction;
-use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Notification;
 
 class AttestationTravailResource extends Resource
 {
@@ -25,15 +28,27 @@ class AttestationTravailResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationLabel = 'Attestations de Travail';
     protected static ?string $pluralLabel = 'Attestations';
-    protected static ?string $navigationGroup = 'Gestion Ressources Humaines';
+    protected static ?string $navigationGroup = 'Gestion des Demandes';
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {
         return $form->schema([
-            \Filament\Forms\Components\TextInput::make('motif')
-                ->label('Motif')
-                ->placeholder('Ex: Dossier bancaire, Visa...')
-                ->nullable(),
+            \Filament\Forms\Components\DatePicker::make('date_demande')
+                ->label('Date de la demande')
+                ->default(now())
+                ->disabled()
+                ->dehydrated(true)
+                ->required(),
+            \Filament\Forms\Components\Radio::make('langue')
+                ->label('Langue')
+                ->options([
+                    'fr' => 'Français',
+                    'ar' => 'Arabe',
+                ])
+                ->default('fr')
+                ->required()
+                ->columns(2),
         ]);
     }
 
@@ -41,48 +56,54 @@ class AttestationTravailResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('nom')->label('Nom')->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('prenom')->label('Prénom')->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('status')
+                TextColumn::make('user.fonctionnaire.nom')
+                    ->label('Nom')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('user.fonctionnaire.prenom')
+                    ->label('Prénom')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('status')
+                    ->badge()
                     ->label('Statut')
                     ->sortable()
-                    ->badge()
-                    ->color(fn ($record) => match ($record->status) {
-                        'en cours' => 'gray',
-                        'au parapheur' => 'blue',
-                        'signé' => 'green',
-                        'rejeté' => 'red',
+                    ->color(fn($state)=> match($state){
+                        'en cours' => 'primary',
+                        'signé' => 'success',
+                        'rejeté' => 'danger',
                     }),
-                Tables\Columns\TextColumn::make('parapheur')
-                    ->label('Parapheur')
-                    ->badge()
-                    ->color(fn ($record) => $record->parapheur === 'signé' ? 'green' : 'yellow'),
+                TextColumn::make('langue')
+                    ->label('Langue')
+                    ->formatStateUsing(fn (string $state) => match($state) {
+                        'fr' => 'Français',
+                        'ar' => 'Arabe',
+                        default => $state,
+                    })
+                    ->sortable()
+                    ->searchable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
+                SelectFilter::make('status')
                     ->label('Filtrer par statut')
                     ->options([
                         'en cours' => 'En cours',
-                        'au parapheur' => 'Au parapheur',
                         'signé' => 'Signé',
                         'rejeté' => 'Rejeté',
                     ]),
+                Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
                 Action::make('approve')
-                    ->label('Mettre au parapheur')
-                    ->icon('heroicon-o-document-check')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->visible(fn ($record) => auth()->user()->hasRole('super_admin') && $record->status === 'en cours')
-                    ->action(fn ($record) => self::sendToParapheur($record)),
-
-                Action::make('finalize')
-                    ->label('Signer l’attestation')
+                    ->label('Signer')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => auth()->user()->hasRole('super_admin') && $record->status === 'au parapheur')
+                    ->visible(fn ($record) => 
+                        auth()->user()->hasRole('super_admin') && 
+                        $record->status === 'en cours' && 
+                        $record->deleted_at === null
+                    )
                     ->action(fn ($record) => self::approveDemande($record)),
 
                 Action::make('reject')
@@ -95,82 +116,74 @@ class AttestationTravailResource extends Resource
                             ->label('Motif du rejet')
                             ->required()
                     ])
-                    ->visible(fn ($record) => auth()->user()->hasRole('super_admin') && $record->status === 'en cours')
+                    ->visible(fn ($record) => 
+                        auth()->user()->hasRole('super_admin') && 
+                        $record->status === 'en cours' && 
+                        $record->deleted_at === null
+                    )
                     ->action(fn ($record, $data) => self::rejectDemande($record, $data['rejection_reason'])),
 
                 Action::make('print')
-                    ->label('Imprimer')
-                    ->icon('heroicon-o-printer')
+                    ->label('Attestation')
+                    ->icon('heroicon-o-document')
                     ->color('primary')
-                    ->visible(fn ($record) => $record->status === 'signé' && $record->demande)
+                    ->visible(fn ($record) => ($record->status === 'en cours' || $record->status === 'signé') && auth()->user()->hasRole('super_admin'))
                     ->url(fn ($record) => route('attestation.print', ['id' => $record->id]))
                     ->openUrlInNewTab(),
 
+                Action::make('download_demande')
+                    ->label('Demande')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->fonctionnaire_id === auth()->user()->fonctionnaire_id)
+                    ->url(fn ($record) => route('attestation.demande', ['id' => $record->id]))
+                    ->openUrlInNewTab(),
+
                 DeleteAction::make(),
+                Tables\Actions\ForceDeleteAction::make(),
+                Tables\Actions\RestoreAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
+                ]),
             ])
             ->defaultSort('date_demande', 'desc')
-            ->persistFiltersInSession();
-    }
-
-    public static function sendToParapheur(Model $record)
-    {
-        $record->update([
-            'status' => 'au parapheur',
-        ]);
+            ->persistFiltersInSession()
+            ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]));
     }
 
     public static function approveDemande(Model $record)
-{
-    $fonctionnaire = Fonctionnaire::with(['corps', 'grade'])->find($record->fonctionaire_id);
-
-    if (!$fonctionnaire) {
-        throw new \Exception("Fonctionnaire not found for ID: " . $record->fonctionaire_id);
+    {
+        $record->update([
+            'status' => 'signé',
+        ]);
     }
 
-    // Generate the attestation HTML
-    $htmlContent = view('attestation-travail', ['fonctionnaire' => $fonctionnaire])->render();
-
-    // Update the record
-    $record->update([
-        'status' => 'signé',
-        'parapheur' => 'signé',
-        'demande' => $htmlContent,
-    ]);
-
-    // Save to storage
-    Storage::disk('public')->put("attestations/attestation_{$fonctionnaire->id}.html", $htmlContent);
-
-    // Send Filament Notification
-    Notification::make()
-        ->title('Attestation signée')
-        ->body('Votre attestation de travail a été signée et est disponible pour téléchargement.')
-        ->success()
-        ->sendToDatabase($fonctionnaire->user);
-}
-
-public static function rejectDemande(Model $record, string $reason)
-{
-    $record->update([
-        'status' => 'rejeté',
-        'rejection_reason' => $reason,
-    ]);
-
-    // Send Filament Notification
-    $fonctionnaire = Fonctionnaire::find($record->fonctionaire_id);
-    if ($fonctionnaire) {
-        Notification::make()
-            ->title('Attestation rejetée')
-            ->body("Votre demande a été rejetée. Motif : $reason")
-            ->danger()
-            ->sendToDatabase($fonctionnaire->user);
+    public static function rejectDemande(Model $record, string $reason)
+    {
+        $record->update([
+            'status' => 'rejeté',
+            'raison_rejection' => $reason,
+        ]);
     }
-}
 
     public static function getEloquentQuery(): Builder
     {
-        return AttestationTravail::query()->when(auth()->check() && !auth()->user()->hasRole('super_admin'), function ($query) {
-            return $query->where('fonctionaire_id', auth()->user()->fonctionnaire_id);
-        });
+        return AttestationTravail::query()
+            ->withTrashed()
+            ->when(auth()->check() && !auth()->user()->hasRole('super_admin'), function ($query) {
+                return $query->where('fonctionnaire_id', auth()->user()->fonctionnaire_id);
+            });
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return auth()->user()->hasRole('super_admin') ? 'Gestion Ressources Humaines' : 'Demandes';
     }
 
     public static function getPages(): array

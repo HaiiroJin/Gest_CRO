@@ -6,24 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('directions', function (Blueprint $table) {
+        Schema::create('jours_fériés', function (Blueprint $table) {
             $table->id();
-            $table->string('libelle');
-            $table->string('libelle_ar');
+            $table->string('Nom', 50);
+            $table->date('Date_départ');
+            $table->integer('nombres_jours');
+            $table->date('Date_fin');
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('directions');
+        Schema::dropIfExists('jours_fériés');
     }
 };

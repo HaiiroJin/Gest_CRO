@@ -52,19 +52,30 @@ class GradeResource extends Resource
                     ->label('Corps')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('deleted_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ForceDeleteAction::make(),
+                Tables\Actions\RestoreAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]));
     }
 
     public static function getPages(): array
