@@ -26,14 +26,16 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class CongeResource extends Resource
 {
     // Modèle associé à cette ressource
-    protected static ?string $model = Conge::class;
+    public static ?string $model = Conge::class;
 
     // Configuration de la navigation dans le panneau d'administration
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationLabel = 'Congés';
-    protected static ?string $pluralLabel = 'Congés';
-    protected static ?string $navigationGroup = 'Gestion des Demandes';
-    protected static ?int $navigationSort = 4;
+    public static ?string $navigationIcon = 'heroicon-o-document-text';
+    public static ?string $navigationLabel = 'Congés';
+    public static function getNavigationGroup(): ?string
+    {
+        return auth()->user()->hasRole('super_admin') ? 'Gestion des Demandes' : 'Demandes';
+    }
+    public static ?int $navigationSort = 2;
 
     // Méthode utilitaire pour obtenir le fonctionnaire sélectionné
     private static function getSelectedFonctionnaire($get = null): ?\App\Models\Fonctionnaire
@@ -191,7 +193,7 @@ class CongeResource extends Resource
                     ->required()
                     ->numeric()
                     ->helperText(fn(\Filament\Forms\Get $get) => self::getLeaveBalanceHelperText($get))
-                    ->live(onBlur: true)
+                    ->live()
                     ->afterStateUpdated(function (\Filament\Forms\Set $set, \Filament\Forms\Get $get, $state) {
                         $startDate = Carbon::parse($get('date_depart'));
                         
@@ -228,7 +230,7 @@ class CongeResource extends Resource
     }
 
     // Override record creation to ensure correct fonctionnaire
-    protected function handleRecordCreation(array $data): Model
+    public function handleRecordCreation(array $data): Model
 {
     $fonctionnaireId = auth()->user()->hasRole('super_admin') ? $data['fonctionnaire_id'] : auth()->user()->fonctionnaire_id;
     $data['fonctionnaire_id'] = $fonctionnaireId;
@@ -236,7 +238,7 @@ class CongeResource extends Resource
     return static::getModel()::create($data);
 }
 
-protected function handleRecordUpdate(Model $record, array $data): Model
+public function handleRecordUpdate(Model $record, array $data): Model
 {
     $fonctionnaireId = auth()->user()->hasRole('super_admin') ? $data['fonctionnaire_id'] : auth()->user()->fonctionnaire_id;
     $data['fonctionnaire_id'] = $fonctionnaireId;
@@ -340,6 +342,14 @@ protected function handleRecordUpdate(Model $record, array $data): Model
                     ->url(fn ($record) => route('conge.demande', ['id' => $record->id]))
                     ->openUrlInNewTab(),
 
+                Action::make('download_avis_retour')
+                    ->label('Avis de Retour')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->url(fn($record) => route('conge.avis_retour', $record->id))
+                    ->openUrlInNewTab()
+                    ->visible(fn($record) => $record->status === 'signée' && $record->deleted_at === null),
+
                 Action::make('download_decision')
                     ->label('Décision')
                     ->icon('heroicon-o-document')
@@ -378,14 +388,6 @@ protected function handleRecordUpdate(Model $record, array $data): Model
         return static::filterByUserRole(Conge::query());
     }
 
-    // Méthode de navigation dynamique basée sur le rôle
-    public static function getNavigationGroup(): ?string
-    {
-        return auth()->user()->hasRole('super_admin') 
-            ? 'Gestion Ressources Humaines' 
-            : 'Demandes';
-    }
-
     // Méthode de routage des pages
     public static function getPages(): array
     {
@@ -395,7 +397,7 @@ protected function handleRecordUpdate(Model $record, array $data): Model
     }
 
     // Filtrer les requêtes en fonction du rôle de l'utilisateur
-    protected static function filterByUserRole(Builder $query): Builder
+    public static function filterByUserRole(Builder $query): Builder
     {
         return $query->when(
             auth()->check() && !auth()->user()->hasRole('super_admin'), 
@@ -404,7 +406,7 @@ protected function handleRecordUpdate(Model $record, array $data): Model
     }
 
     // Préparer les données avant la création d'un congé
-    protected function prepareLeaveData(array $data): array
+    public function prepareLeaveData(array $data): array
     {
         $fonctionnaireId = $data['fonctionnaire_id'];
         $fonctionnaire = $this->findFonctionnaire($fonctionnaireId);
@@ -417,13 +419,13 @@ protected function handleRecordUpdate(Model $record, array $data): Model
     }
 
     // Trouver le fonctionnaire par son ID
-    protected function findFonctionnaire(int $fonctionnaireId): \App\Models\Fonctionnaire
+    public function findFonctionnaire(int $fonctionnaireId): \App\Models\Fonctionnaire
     {
         return \App\Models\Fonctionnaire::findOrFail($fonctionnaireId);
     }
 
     // Trouver l'utilisateur associé à un fonctionnaire
-    protected function findAssociatedUser(int $fonctionnaireId): ?\App\Models\User
+    public function findAssociatedUser(int $fonctionnaireId): ?\App\Models\User
     {
         return \App\Models\User::whereHas('fonctionnaire', 
             fn($query) => $query->where('id', $fonctionnaireId)
@@ -607,7 +609,9 @@ protected function handleRecordUpdate(Model $record, array $data): Model
         return $returnDate;
     }
 
-    protected static function boot()
+    
+
+    public static function boot()
     {
         parent::boot();
     }

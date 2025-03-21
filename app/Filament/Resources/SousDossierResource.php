@@ -20,7 +20,7 @@ class SousDossierResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-folder-open';
 
-    protected static ?string $navigationGroup = 'Gestion Ressources Humaines';
+    protected static ?string $navigationGroup = 'Paramètrage';
     protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form

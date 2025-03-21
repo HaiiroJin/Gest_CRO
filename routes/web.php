@@ -14,4 +14,5 @@ Route::middleware(['auth'])->group(function () {
     
     Route::get('/conge/demande/{id}', [CongeController::class, 'downloadDemande'])->name('conge.demande');
     Route::get('/conge/decision/{id}', [CongeController::class, 'downloadDecision'])->name('conge.decision');
+    Route::get('/conge/avis_retour/{id}', [CongeController::class, 'downloadAvisRetour'])->name('conge.avis_retour');
 });

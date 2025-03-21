@@ -69,4 +69,21 @@ class CongeController extends Controller
             'autorisation_sortie_territoire' => $conge->autorisation_sortie_territoire
         ]);
     }
+
+    public function downloadAvisRetour($id)
+    {
+        $conge = Conge::findOrFail($id);
+        
+        // Allow admin or the owner of the leave to download the document
+        if (!auth()->user()->hasRole('super_admin') && 
+            $conge->fonctionnaire_id !== auth()->user()->fonctionnaire_id) {
+            abort(403, "Vous n'êtes pas autorisé à télécharger ce document.");
+        }
+
+        $fonctionnaire = Fonctionnaire::findOrFail($conge->fonctionnaire_id);
+        return view('avis_de_retour', [
+            'fonctionnaire' => $fonctionnaire,
+            'conge' => $conge,
+        ]);
+    }
 }

@@ -17,7 +17,7 @@ class CorpsResource extends Resource
 {
     protected static ?string $model = Corps::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-user-group';
+    protected static ?string $navigationIcon = 'heroicon-o-briefcase';
 
     protected static ?string $navigationGroup = 'Structure Organisationnelle';
 

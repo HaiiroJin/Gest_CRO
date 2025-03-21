@@ -29,7 +29,7 @@ class AttestationTravailResource extends Resource
     protected static ?string $navigationLabel = 'Attestations de Travail';
     protected static ?string $pluralLabel = 'Attestations';
     protected static ?string $navigationGroup = 'Gestion des Demandes';
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
@@ -183,7 +183,7 @@ class AttestationTravailResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return auth()->user()->hasRole('super_admin') ? 'Gestion Ressources Humaines' : 'Demandes';
+        return auth()->user()->hasRole('super_admin') ? 'Gestion des Demandes' : 'Demandes';
     }
 
     public static function getPages(): array

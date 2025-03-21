@@ -23,6 +23,12 @@ class DossierFonctionnaireResource extends Resource
 
     protected static ?string $navigationLabel = 'Dossiers Fonctionnaire';
 
+    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    protected static ?string $navigationGroup = 'Gestion Fonctionnaires';
+
+    protected static ?int $navigationSort = 2;
+
     public static function form(Form $form): Form
     {
         return $form
