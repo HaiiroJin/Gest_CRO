@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avi de retour</title>
+    <title>Avis de retour</title>
     <style>
         .fieldset {
             border: 3px solid #000;
