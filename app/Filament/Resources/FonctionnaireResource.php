@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Table;
 use Filament\Infolists\Infolist;
+use Filament\Infolists\Components\Tabs;
 use Filament\Infolists\Components\Section as InfolistSection;
 use Filament\Infolists\Components\TextEntry;
 use Illuminate\Database\Eloquent\Builder;
@@ -79,7 +80,7 @@ class FonctionnaireResource extends Resource
                             ])
                             ->columns(4),
                         
-                        Forms\Components\Tabs\Tab::make('Informations Professionnelles')
+                        Forms\Components\Tabs\Tab::make('Situation administrative')
                             ->schema([
                                 Forms\Components\Select::make('direction_id')
                                         ->options(\App\Models\Direction::getDirectionsOptions())
@@ -113,18 +114,23 @@ class FonctionnaireResource extends Resource
                                         ->required(),
                                 Forms\Components\TextInput::make('date_affectation_cro')
                                         ->required(),
+                                Forms\Components\TextInput::make('matricule_aujour')
+                                        ->required()
+                                        ->maxLength(255),
+                            ])
+                            ->columns(2),
+                        Forms\Components\Tabs\Tab::make('Solde')
+                            ->schema([
                                 Forms\Components\TextInput::make('solde_année_prec')
                                         ->required()
                                         ->maxLength(255),
                                 Forms\Components\TextInput::make('solde_année_act')
                                         ->required()
                                         ->maxLength(255),
-                                Forms\Components\TextInput::make('matricule_aujour')
-                                        ->required()
-                                        ->maxLength(255),
+                                
                             ])
                             ->columns(2),
-                    ])
+                ])
                     ->activeTab(1),
             ])
             ->columns(1);
@@ -178,54 +184,60 @@ class FonctionnaireResource extends Resource
     {
         return $infolist
             ->schema([
-                InfolistSection::make('Informations personnelles')
+                Tabs::make('Fonctionnaire')
+                    ->tabs([
+                        Tabs\Tab::make('Informations Personnelles')
+                            ->schema([
+                                TextEntry::make('nom')
+                                    ->label('Nom'),
+                                TextEntry::make('prenom')
+                                    ->label('Prénom'),
+                                TextEntry::make('nom_ar')
+                                    ->label('Nom arabe'),
+                                TextEntry::make('prenom_ar')
+                                    ->label('Prénom arabe'),
+                                TextEntry::make('civilite')
+                                    ->label('Civilité'),
+                                TextEntry::make('date_naissance')
+                                    ->label('Date naissance'),
+                                TextEntry::make('cin')
+                                    ->label('CIN'),
+                                TextEntry::make('rib')
+                                    ->label('RIB'),
+                                TextEntry::make('tel')
+                                    ->label('Téléphone')
+                                    ->columnSpan(2),
+                                TextEntry::make('email')
+                                    ->label('Email')
+                                    ->columnSpan(2),
+                                TextEntry::make('adresse')
+                                    ->label('Adresse')
+                                    ->columnSpanFull(),
+                    ])
+                    ->columns(4),
+                Tabs\Tab::make('Situation administrative')
                     ->schema([
-                        TextEntry::make('nom')
-                            ->label('Nom'),
-                        TextEntry::make('prenom')
-                            ->label('Prénom'),
-                        TextEntry::make('nom_ar')
-                            ->label('Nom arabe'),
-                        TextEntry::make('prenom_ar')
-                            ->label('Prénom arabe'),
-                        TextEntry::make('civilite')
-                            ->label('Civilité'),
-                        TextEntry::make('date_naissance')
-                            ->label('Date naissance'),
-                        TextEntry::make('cin')
-                            ->label('CIN'),
-                        TextEntry::make('rib')
-                            ->label('RIB'),
-                        TextEntry::make('tel')
-                            ->label('Téléphone'),
-                        TextEntry::make('email')
-                            ->label('Email'),
-                        TextEntry::make('adresse')
-                            ->label('Adresse')
-                            ->columnSpan(2),
-                    ])->columns(4),
-                InfolistSection::make('Situation administrative')
-                    ->schema([
-                        TextEntry::make('corps.libelle')
-                            ->label('Corps'),
-                        TextEntry::make('grade.libelle')
-                            ->label('Grade'),
-                        TextEntry::make('groupe.libelle')
-                            ->label('Groupe'),
                         TextEntry::make('direction.libelle')
                             ->label('Direction'),
                         TextEntry::make('division.libelle')
                             ->label('Division'),
                         TextEntry::make('service.libelle')
                             ->label('Service'),
-                        TextEntry::make('matricule_aujour')
-                            ->label('Matricule aujour'),
+                        TextEntry::make('corps.libelle')
+                            ->label('Corps'),
+                        TextEntry::make('grade.libelle')
+                            ->label('Grade'),
+                        TextEntry::make('groupe.libelle')
+                            ->label('Groupe'),
                         TextEntry::make('date_recruitement')
                             ->label('Date recruitement'),
                         TextEntry::make('date_affectation_cro')
                             ->label('Date affectation cro'),
-                    ])->columns(3),
-                InfolistSection::make('Solde')
+                        TextEntry::make('matricule_aujour')
+                            ->label('Matricule aujour'),
+                    ])
+                    ->columns(2),
+                Tabs\Tab::make('Solde')
                     ->schema([
                         TextEntry::make('solde_année_prec')
                             ->label('Solde année préc'),
@@ -233,8 +245,11 @@ class FonctionnaireResource extends Resource
                             ->label('Solde année act'),
                         TextEntry::make('solde_congé')
                             ->label('Solde congé'),
-                    ])->columns(3),
-            ]);
+                    ])
+                    ->columns(3),
+                ]),
+            ])
+            ->columns(1);
     }
 
     public static function getPages(): array
