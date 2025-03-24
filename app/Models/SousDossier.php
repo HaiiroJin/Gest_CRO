@@ -34,7 +34,7 @@ class SousDossier extends Model
         return $this->hasMany(DossierFonctionnaire::class);
     }
 
-    public static function getSousDossiersOptions(): array
+    public static function getSousDossiers(): array
     {
         return self::pluck('nom_sous_doss', 'id')->toArray();
     }

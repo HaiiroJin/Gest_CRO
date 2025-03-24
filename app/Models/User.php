@@ -81,4 +81,41 @@ class User extends Authenticatable implements FilamentUser
         $this->last_login_ip = $request->ip();
         $this->save();
     }
+
+    /**
+     * Get a virtual name attribute
+     *
+     * @return string
+     */
+    public function getNameAttribute(): string
+    {
+        // If fonctionnaire exists and has both nom and prenom, use full name
+        if ($this->fonctionnaire && $this->fonctionnaire->nom && $this->fonctionnaire->prenom) {
+            return trim("{$this->fonctionnaire->nom} {$this->fonctionnaire->prenom}");
+        }
+        
+        // Fallback to email
+        return $this->email ?? 'Utilisateur';
+    }
+
+    /**
+     * Get the user name for Filament
+     */
+    public function getUserName(): string
+    {
+        return $this->name;
+    }
+
+    /**
+     * Alias methods for compatibility
+     */
+    public function name(): string
+    {
+        return $this->name;
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
 }

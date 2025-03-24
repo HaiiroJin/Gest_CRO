@@ -11,7 +11,7 @@ class DossierFonctionnaire extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'dossier_fonctionnaires';
+    protected $table = 'dossiers_fonctionnaires';
 
     protected $fillable = [
         'fonctionnaire_id', 
@@ -19,11 +19,13 @@ class DossierFonctionnaire extends Model
         'sous_dossier_id',
         'date_ajout',
         'description',
+        'fichier',
     ];
 
     protected $casts = [
         'date_ajout' => 'date',
         'description' => 'string',
+        'fichier' => 'string',
     ];
 
     public function fonctionnaire(): BelongsTo

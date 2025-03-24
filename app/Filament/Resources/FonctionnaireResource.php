@@ -2,11 +2,12 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\FonctionnaireResource\Pages;
 use App\Models\Fonctionnaire;
 use Filament\Forms\Form;
 use Filament\Forms;
 use App\Filament\Resources\DossierFonctionnaireResource;
+use App\Filament\Resources\FonctionnaireResource\Pages\ManageFonctionnaires;
+use App\Filament\Resources\FonctionnaireResource\RelationManagers\DossierFonctionnaireRelationManager;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Enums\ActionsPosition;
@@ -33,93 +34,100 @@ class FonctionnaireResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Informations personnelles')
-                    ->schema([
-                        Forms\Components\TextInput::make('nom')
-                            ->required()
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('prenom')
-                            ->label('Prénom')
-                            ->required()
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('nom_ar')
-                            ->label('Nom (Arabe)')
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('prenom_ar')
-                            ->label('Prénom (Arabe)')
-                            ->maxLength(255),
-                        Forms\Components\Radio::make('civilite')
-                            ->label('Civilité')
-                            ->options([
-                                'M' => 'M',
-                                'Mme' => 'Mme',
+                Forms\Components\Tabs::make('Fonctionnaire')
+                    ->tabs([
+                        Forms\Components\Tabs\Tab::make('Informations Personnelles')
+                            ->schema([
+                                Forms\Components\TextInput::make('nom')
+                                        ->required()
+                                        ->maxLength(255),
+                                Forms\Components\TextInput::make('prenom')
+                                        ->label('Prénom')
+                                        ->required()
+                                        ->maxLength(255),
+                                Forms\Components\TextInput::make('nom_ar')
+                                        ->label('Nom (Arabe)')
+                                        ->maxLength(255),
+                                Forms\Components\TextInput::make('prenom_ar')
+                                        ->label('Prénom (Arabe)')
+                                        ->maxLength(255),
+                                Forms\Components\Radio::make('civilite')
+                                        ->label('Civilité')
+                                        ->options([
+                                            'M' => 'M',
+                                            'Mme' => 'Mme',
+                                        ])
+                                        ->columns(2),
+                                Forms\Components\DatePicker::make('date_naissance')
+                                        ->required(),
+                                Forms\Components\TextInput::make('cin')
+                                        ->required()
+                                        ->maxLength(255),
+                                Forms\Components\TextInput::make('tel')
+                                        ->tel()
+                                        ->maxLength(255),
+                                Forms\Components\TextInput::make('rib')
+                                        ->maxLength(255)
+                                        ->columnSpan(2),
+                                Forms\Components\TextInput::make('email')
+                                        ->email()
+                                        ->maxLength(255)
+                                        ->columnSpan(2),
+                                Forms\Components\Textarea::make('adresse')
+                                        ->maxLength(255)
+                                        ->columnSpanFull(),
+                            ])
+                            ->columns(4),
+                        
+                        Forms\Components\Tabs\Tab::make('Informations Professionnelles')
+                            ->schema([
+                                Forms\Components\Select::make('direction_id')
+                                        ->options(\App\Models\Direction::getDirectionsOptions())
+                                        ->searchable()
+                                        ->label('Direction'),
+                                Forms\Components\Select::make('division_id')
+                                        ->options(\App\Models\Division::getDivisionsOptions())
+                                        ->searchable()
+                                        ->label('Division'),
+                                Forms\Components\Select::make('service_id')
+                                        ->options(\App\Models\Service::getServicesOptions())
+                                        ->searchable()
+                                        ->label('Service'),
+                                Forms\Components\Select::make('groupe_id')
+                                        ->options(\App\Models\Groupe::getOptions())
+                                        ->searchable()
+                                        ->label('Groupe'),
+                                Forms\Components\Select::make('grade_id')
+                                        ->options(\App\Models\Grade::getOptions())
+                                        ->searchable()
+                                        ->label('Grade'),
+                                Forms\Components\Select::make('corps_id')
+                                        ->options(\App\Models\Corps::getOptions())
+                                        ->searchable()
+                                        ->label('Corps'),
+                                Forms\Components\TextInput::make('poste')
+                                        ->maxLength(255),
+                                Forms\Components\TextInput::make('situation')
+                                        ->maxLength(255),
+                                Forms\Components\DatePicker::make('date_recruitement')
+                                        ->required(),
+                                Forms\Components\TextInput::make('date_affectation_cro')
+                                        ->required(),
+                                Forms\Components\TextInput::make('solde_année_prec')
+                                        ->required()
+                                        ->maxLength(255),
+                                Forms\Components\TextInput::make('solde_année_act')
+                                        ->required()
+                                        ->maxLength(255),
+                                Forms\Components\TextInput::make('matricule_aujour')
+                                        ->required()
+                                        ->maxLength(255),
                             ])
                             ->columns(2),
-                        Forms\Components\DatePicker::make('date_naissance')
-                            ->required(),
-                        Forms\Components\TextInput::make('cin')
-                            ->required()
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('tel')
-                            ->tel()
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('rib')
-                            ->maxLength(255)
-                            ->columnSpan(2),
-                        Forms\Components\TextInput::make('email')
-                            ->email()
-                            ->maxLength(255)
-                            ->columnSpan(2),
-                        Forms\Components\Textarea::make('adresse')
-                            ->maxLength(255)
-                            ->columnSpan('full'),
-                    ])->columns(4),
-
-                Forms\Components\Section::make('Informations professionnelles')
-                    ->schema([
-                        Forms\Components\Select::make('direction_id')
-                            ->options(\App\Models\Direction::getDirectionsOptions())
-                            ->searchable()
-                            ->label('Direction'),
-                        Forms\Components\Select::make('division_id')
-                            ->options(\App\Models\Division::getDivisionsOptions())
-                            ->searchable()
-                            ->label('Division'),
-                        Forms\Components\Select::make('service_id')
-                            ->options(\App\Models\Service::getServicesOptions())
-                            ->searchable()
-                            ->label('Service'),
-                        Forms\Components\Select::make('groupe_id')
-                            ->options(\App\Models\Groupe::getOptions())
-                            ->searchable()
-                            ->label('Groupe'),
-                        Forms\Components\Select::make('grade_id')
-                            ->options(\App\Models\Grade::getOptions())
-                            ->searchable()
-                            ->label('Grade'),
-                        Forms\Components\Select::make('corps_id')
-                            ->options(\App\Models\Corps::getOptions())
-                            ->searchable()
-                            ->label('Corps'),
-                        Forms\Components\TextInput::make('poste')
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('situation')
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('matricule_aujour')
-                            ->required()
-                            ->maxLength(255),
-                        Forms\Components\DatePicker::make('date_recruitement')
-                            ->required(),
-                        Forms\Components\TextInput::make('date_affectation_cro')
-                            ->required(),
-                        Forms\Components\TextInput::make('solde_année_prec')
-                            ->required()
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('solde_année_act')
-                            ->required()
-                            ->maxLength(255),
-                    ])->columns(2)
-            ]);
+                    ])
+                    ->activeTab(1),
+            ])
+            ->columns(1);
     }
 
     public static function table(Table $table): Table
@@ -232,7 +240,14 @@ class FonctionnaireResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ManageFonctionnaires::route('/'),
+            'index' => ManageFonctionnaires::route('/'),
+        ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            DossierFonctionnaireRelationManager::class,
         ];
     }
 }

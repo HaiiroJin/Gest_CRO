@@ -67,14 +67,23 @@ class CongeResource extends Resource
         // For super admin, prioritize form input, then request input
         if (auth()->user()->hasRole('super_admin')) {
             $fonctionnaireId = request()->input('fonctionnaire_id');
+            $congeType = request()->input('type');
         } else {
             $fonctionnaireId = auth()->user()->fonctionnaire_id;
+            $congeType = request()->input('type');
         }
         
         $fonctionnaire = \App\Models\Fonctionnaire::find($fonctionnaireId);
 
-        if ($value && $fonctionnaire && $value > $fonctionnaire->solde_congé) {
-            $fail("Le nombre de jours demandés dépasse le solde de congé disponible ({$fonctionnaire->solde_congé} jours).");
+        // Validate that value is a positive number
+        if (!is_numeric($value) || $value <= 0) {
+            $fail("Le nombre de jours doit être un nombre positif.");
+            return;
+        }
+
+        // Only reduce solde for 'annuel' type leaves
+        if ($value && $fonctionnaire && $congeType === 'annuel' && $value > $fonctionnaire->solde_congé) {
+            $fail("Le nombre de jours demandés ({$value} jours) dépasse le solde de congé disponible ({$fonctionnaire->solde_congé} jours).");
         }
     }
 
@@ -273,6 +282,7 @@ public function handleRecordUpdate(Model $record, array $data): Model
                         'en cours' => 'primary',
                         'signée' => 'success',
                         'rejetée' => 'danger',
+                        'demande_annulation' => 'warning',
                         default => 'gray'
                     }),
 
@@ -363,8 +373,33 @@ public function handleRecordUpdate(Model $record, array $data): Model
                     ->icon('heroicon-o-minus-circle')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => (auth()->user()->hasRole('super_admin') || $record->status !== 'signée') && $record->deleted_at === null)
+                    ->visible(fn ($record) => auth()->user()->hasRole('super_admin') && $record->deleted_at === null)
                     ->action(fn ($record) => self::supprimerConge($record)),
+
+                Action::make('request_cancel')
+                    ->label("Demander l'annulation")
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmer la demande d\'annulation')
+                    ->modalDescription('Êtes-vous absolument certain de vouloir demander l\'annulation de cette demande de congé ? Cette action est irréversible et nécessite l\'approbation d\'un administrateur. Une fois soumise, vous ne pourrez pas annuler cette demande.')
+                    ->modalSubmitActionLabel('Oui, demander l\'annulation')
+                    ->modalCancelActionLabel('Annuler')
+                    ->visible(fn ($record) => !auth()->user()->hasRole('super_admin') && $record->status === 'en cours' && $record->deleted_at === null)
+                    ->action(function ($record) {
+                        // Update the record status to indicate cancellation request
+                        $record->update([
+                            'status' => 'demande_annulation'
+                        ]);
+                        
+                        // Optional: Add notification or logging
+                        \Filament\Notifications\Notification::make()
+                            ->title('Demande d\'annulation envoyée')
+                            ->body('Votre demande d\'annulation a été soumise et sera traitée par un administrateur.')
+                            ->success()
+                            ->send();
+                    }),
+
                 ForceDeleteAction::make(),
                 RestoreAction::make(),
             ])

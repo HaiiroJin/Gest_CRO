@@ -49,6 +49,11 @@
             }
         });
     </script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            window.print();
+        });
+    </script>
     <style>
         body {
             margin: 0;
@@ -227,7 +232,7 @@
             <p style="display: DrStatus;"><strong>المديرية : </strong><span> {{ $fonctionnaire->direction->libelle_ar ?? '' }} </span></p>
         </div>
         <div class="infos-left">
-            <p><strong> وجدة في : </strong><span> {{ $conge->date_depart }} </span></p>
+            <p><strong> وجدة في : </strong><span> {{ $conge->date_demande }} </span></p>
         </div>
         <h1 class="header">الى<br>  <br> السيد رئيس مجلس جهة الشرق</h1>
         <div class="checkbox1">

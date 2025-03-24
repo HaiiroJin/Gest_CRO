@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Profile;
+use Illuminate\Support\Str;
 
 class UserResource extends Resource
 {
@@ -30,23 +31,41 @@ class UserResource extends Resource
         $fonctionnaire = new Fonctionnaire();
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
+                Forms\Components\Select::make('fonctionnaire_id')
+                    ->options($fonctionnaire->getFonctionnaireOptions())
+                    ->searchable()
                     ->required()
-                    ->maxLength(255),
+                    ->label('Fonctionnaire')
+                    ->live()
+                    ->afterStateUpdated(function (Forms\Set $set, $state) {
+                        if ($state) {
+                            $selectedFonctionnaire = Fonctionnaire::find($state);
+                            
+                            $nom = Str::slug($selectedFonctionnaire->nom);
+                            $prenom = Str::slug($selectedFonctionnaire->prenom);
+                            $email = "{$nom}.{$prenom}@cr-oriental.ma";
+                            $set('email', $email);
+                        }
+                    }),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()
                     ->maxLength(255),
+                Forms\Components\TextInput::make('name')
+                    ->hidden()
+                    ->default(function ($get) {
+                        $fonctionnaireId = $get('fonctionnaire_id');
+                        if ($fonctionnaireId) {
+                            $selectedFonctionnaire = Fonctionnaire::find($fonctionnaireId);
+                            return "{$selectedFonctionnaire->nom} {$selectedFonctionnaire->prenom}";
+                        }
+                        return null;
+                    }),
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->dehydrateStateUsing(fn (string $state): string => Hash::make($state))
                     ->dehydrated(fn (?string $state): bool => filled($state))
                     ->required(fn (string $operation): bool => $operation === 'create'),
-                Forms\Components\Select::make('fonctionnaire_id')
-                    ->options($fonctionnaire->getFonctionnaireOptions())
-                    ->searchable()
-                    ->required()
-                    ->label('Fonctionnaire'),
                 Forms\Components\Select::make('roles')
                     ->relationship('roles', 'name')
                     ->multiple()
@@ -59,59 +78,27 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Nom d\'utilisateur')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('email')
-                    ->label('Email')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('fonctionnaire.nom')
-                    ->label('Fonctionnaire')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('status')
-                    ->label('Statut')
+                    ->label('Nom'),
+                Tables\Columns\TextColumn::make('fonctionnaire.prenom')
+                    ->label('Prénom'),
+                Tables\Columns\TextColumn::make('email')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('roles.name')
+                    ->label('Rôles')
                     ->badge()
-                    ->color(fn ($state) => match($state) {
-                        'active' => 'success',
-                        'inactive' => 'danger',
-                        default => 'gray',
-                    }),
-                Tables\Columns\TextColumn::make('last_login_at')
-                    ->label('Dernière connexion')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('deleted_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
-                Tables\Filters\SelectFilter::make('status')
-                    ->options([
-                        'active' => 'Actif',
-                        'inactive' => 'Inactif',
-                    ]),
+                //
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-                Tables\Actions\ForceDeleteAction::make(),
-                Tables\Actions\RestoreAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
-                    Tables\Actions\RestoreBulkAction::make(),
                 ]),
-            ])
-            ->defaultSort('created_at', 'desc')
-            ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]));
+            ]);
     }
     
     public static function getRelations(): array

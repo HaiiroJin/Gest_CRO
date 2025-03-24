@@ -7,7 +7,10 @@ use App\Filament\Resources\DossierFonctionnaireResource\RelationManagers;
 use App\Models\DossierFonctionnaire;
 use App\Models\Dossier;
 use App\Models\SousDossier;
+use App\Models\Fonctionnaire;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
@@ -16,6 +19,7 @@ use Filament\Tables\Actions;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Str;
 
 class DossierFonctionnaireResource extends Resource
 {
@@ -33,22 +37,58 @@ class DossierFonctionnaireResource extends Resource
     {
         return $form
             ->schema([
-                Select::make('dossier_id')
-                    ->label('Dossier')
-                    ->options(Dossier::getDossiers())
-                    ->searchable()
-                    ->required(),
+                Section::make('Dossier Fonctionnaire Details')
+                    ->schema([
+                        Select::make('dossier_id')
+                            ->label('Dossier')
+                            ->options(Dossier::getDossiers())
+                            ->searchable()
+                            ->required(),
 
-                Select::make('sous_dossier_id')
-                    ->label('Sous Dossier')
-                    ->options(SousDossier::getSousDossiers())
-                    ->searchable()
-                    ->required(),
-                Select::make('fonctionnaire_id')
-                    ->label('Fonctionnaire')
-                    ->relationship('fonctionnaire', 'nom')
-                    ->preload()
-                    ->searchable()
+                        Select::make('sous_dossier_id')
+                            ->label('Sous Dossier')
+                            ->options(SousDossier::getSousDossiers())
+                            ->searchable()
+                            ->required(),
+
+                        Select::make('fonctionnaire_id')
+                            ->label('Fonctionnaire')
+                            ->relationship('fonctionnaire', function ($query) {
+                                return $query->select('id', 'nom', 'prenom');
+                            })
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->nom} {$record->prenom}")
+                            ->preload()
+                            ->searchable(),
+
+                        FileUpload::make('fichier')
+                            ->label('Document')
+                            ->directory(function ($record, $get) {
+                                // Try to get fonctionnaire_id from the form's current state
+                                $fonctionnaireId = $get('fonctionnaire_id');
+                                
+                                if ($fonctionnaireId) {
+                                    $fonctionnaire = Fonctionnaire::find($fonctionnaireId);
+                                    $folderName = $fonctionnaire 
+                                        ? Str::slug("{$fonctionnaire->nom}-{$fonctionnaire->prenom}")
+                                        : 'unknown';
+                                } else {
+                                    $folderName = 'unknown';
+                                }
+                                
+                                $currentDate = now();
+                                return "dossier_fonctionnaire_docs/{$folderName}/{$currentDate->year}/{$currentDate->format('m-d')}";
+                            })
+                            ->maxSize(1024)
+                            ->acceptedFileTypes([
+                                'application/pdf', 
+                                'image/jpeg', 
+                                'image/png', 
+                                'image/gif', 
+                                'application/msword', 
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                            ])
+                            ->helperText('Taille de fichier maximale : 1 Mo. Types autorisés : PDF, Images, Documents Word')
+                    ])
             ]);
     }
 
@@ -57,7 +97,10 @@ class DossierFonctionnaireResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('fonctionnaire.nom')
-                    ->label('Fonctionnaire')
+                    ->label('Nom')
+                    ->searchable(),
+                TextColumn::make('fonctionnaire.prenom')
+                    ->label('Prénom')
                     ->searchable(),
                 TextColumn::make('dossier.nom_dossier')
                     ->label('Dossier')

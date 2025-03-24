@@ -33,7 +33,7 @@ class Dossier extends Model
         return $this->hasMany(DossierFonctionnaire::class);
     }
 
-    public static function getDossiersOptions(): array
+    public static function getDossiers(): array
     {
         return self::pluck('nom_dossier', 'id')->toArray();
     }

@@ -74,15 +74,52 @@ class Fonctionnaire extends Model
 
     public function getFonctionnaireOptions()
     {
-        return self::pluck('nom', 'id')->toArray();
+        return self::all()->mapWithKeys(function ($fonctionnaire) {
+            return [$fonctionnaire->id => "{$fonctionnaire->nom} {$fonctionnaire->prenom}"];
+        })->toArray();
     }
 
     public function getSoldeCongéAttribute()
     {
         return ($this->solde_année_prec ?? 0) + ($this->solde_année_act ?? 0);
     }
+
+    /**
+     * Get all dossiers for this fonctionnaire
+     */
     public function dossierFonctionnaires()
     {
         return $this->hasMany(DossierFonctionnaire::class);
+    }
+
+    /**
+     * Create a new DossierFonctionnaire
+     */
+    public function createDossierFonctionnaire(array $data)
+    {
+        return $this->dossierFonctionnaires()->create([
+            'dossier_id' => $data['dossier_id'],
+            'sous_dossier_id' => $data['sous_dossier_id'] ?? null,
+            'date_ajout' => now(),
+            'description' => $data['description'] ?? null,
+            'fichier' => $data['fichier'] ?? null,
+        ]);
+    }
+
+    /**
+     * Get available dossier options
+     */
+    public static function getDossierOptions()
+    {
+        return Dossier::pluck('nom_dossier', 'id');
+    }
+
+    /**
+     * Get available sous-dossier options based on selected dossier
+     */
+    public static function getSousDossierOptions($dossierId)
+    {
+        return SousDossier::where('dossier_id', $dossierId)
+            ->pluck('nom_sous_doss', 'id');
     }
 }

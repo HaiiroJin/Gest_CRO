@@ -121,7 +121,12 @@
                 <p style="margin-left: 40px;">إن السيد(ة): <span class="input">{{ $fonctionnaire->nom_ar }} {{ $fonctionnaire->prenom_ar }}</span></p>
                 <p style="margin-left: 40px;">الدرجة الإدارية: <span class="input">{{ $fonctionnaire->grade->libelle_ar }}</span></p>
                 <p style="margin-left: 40px;">- قد رجع(ت) من رخصته(ها) يوم<span class="input">{{ $conge->date_retour }}</span></p>
-                <p style="margin-left: 40px;">- بعد الاستفادة من : <strong>{{ $conge->nombre_jours }}</strong> أيام عمل من رخصة <strong>{{ $conge->type = 'annuelle' ? 'سنوية' : '' }}</strong>.</p>
+                <p style="margin-left: 40px;">- بعد الاستفادة من : <strong>{{ $conge->nombre_jours }}</strong> 
+                أيام عمل من رخصة 
+                <strong>
+                    {{ $conge->type == 'annuel' ? 'سنوية' : ($conge->type == 'exceptionnel' ? 'استثنائية' : '') }}
+                </strong>.
+                </p>
                 <p>بناء على: <span class="input">القرار......... بتاريخ ............</span></p>
                 <div class="signature">
                     <p id="right">إمضاء الرئيس المباشر <span class="input"></span></p>
