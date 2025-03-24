@@ -56,11 +56,11 @@ class AttestationTravailResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('user.fonctionnaire.nom')
+                TextColumn::make('fonctionnaire.nom')
                     ->label('Nom')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('user.fonctionnaire.prenom')
+                TextColumn::make('fonctionnaire.prenom')
                     ->label('Prénom')
                     ->sortable()
                     ->searchable(),

@@ -94,7 +94,6 @@ class AttestationTravail extends Model
             ])->render();
 
             $attestation->attestation = $htmlContent;
-            Storage::disk('public')->put("attestations/attestation_{$fonctionnaire->id}.html", $htmlContent);
         });
     }
 }

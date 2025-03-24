@@ -113,7 +113,6 @@ class Conge extends Model
             ])->render();
 
             $conge->demande = $htmlContent;
-            Storage::disk('public')->put("conges/demande_{$fonctionnaire->id}.html", $htmlContent);
         });
     }
 }

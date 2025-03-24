@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AttestationController;
 use App\Http\Controllers\CongeController;
+use App\Http\Controllers\FileController;
 
 Route::get('/', function () {
     return redirect('/admin');
@@ -15,4 +16,5 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/conge/demande/{id}', [CongeController::class, 'downloadDemande'])->name('conge.demande');
     Route::get('/conge/decision/{id}', [CongeController::class, 'downloadDecision'])->name('conge.decision');
     Route::get('/conge/avis_retour/{id}', [CongeController::class, 'downloadAvisRetour'])->name('conge.avis_retour');
+    Route::get('/dossier/view/{id}', [FileController::class, 'viewFile'])->name('dossier.view');
 });
