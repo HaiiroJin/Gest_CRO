@@ -62,7 +62,7 @@ class CongeResource extends Resource
     }
 
     // Méthode de validation personnalisée pour le nombre de jours
-    private static function validateNumberOfDays($value, $fail)
+    private static function validateSoldeConge($value, $fail)
     {
         // For super admin, prioritize form input, then request input
         if (auth()->user()->hasRole('super_admin')) {
@@ -73,17 +73,30 @@ class CongeResource extends Resource
             $congeType = request()->input('type');
         }
         
-        $fonctionnaire = \App\Models\Fonctionnaire::find($fonctionnaireId);
-
-        // Validate that value is a positive number
-        if (!is_numeric($value) || $value <= 0) {
-            $fail("Le nombre de jours doit être un nombre positif.");
+        // Ensure fonctionnaire ID is valid
+        if (!$fonctionnaireId) {
+            $fail("Aucun fonctionnaire sélectionné.");
             return;
         }
 
-        // Only reduce solde for 'annuel' type leaves
-        if ($value && $fonctionnaire && $congeType === 'annuel' && $value > $fonctionnaire->solde_congé) {
-            $fail("Le nombre de jours demandés ({$value} jours) dépasse le solde de congé disponible ({$fonctionnaire->solde_congé} jours).");
+        $fonctionnaire = \App\Models\Fonctionnaire::findOrFail($fonctionnaireId);
+
+        // Only validate for 'annuel' type leaves
+        if ($congeType === 'annuel') {
+            // Validate that value is a positive number
+            if (!is_numeric($value) || $value <= 0) {
+                $fail("Le nombre de jours doit être un nombre positif.");
+                return;
+            }
+
+            // Recalculate solde conge at the moment of validation
+            $currentSoldeConge = $fonctionnaire->calculateCurrentSoldeConge();
+
+            // Check solde
+            if ($value > $currentSoldeConge) {
+                $fail("Vous ne pouvez pas demander {$value} jours. Votre solde de congé est de {$currentSoldeConge} jours.");
+                return;
+            }
         }
     }
 
@@ -103,20 +116,25 @@ class CongeResource extends Resource
             if (!$fonctionnaireId) {
                 $fonctionnaireId = request()->input('fonctionnaire_id');
             }
+            
+            // Get the type of leave
+            $congeType = $get ? $get('type') : request()->input('type');
         } else {
             // For regular users, use their own fonctionnaire_id
             $fonctionnaireId = auth()->user()->fonctionnaire_id;
+            $congeType = $get ? $get('type') : request()->input('type');
         }
         
         $fonctionnaire = $fonctionnaireId 
             ? \App\Models\Fonctionnaire::find($fonctionnaireId) 
             : null;
         
-        return $fonctionnaire 
+        // Show balance for 'annuel' type leaves
+        return $fonctionnaire && $congeType === 'annuel'
             ? "Solde de congé disponible : {$fonctionnaire->solde_congé} jours" 
             : (auth()->user()->hasRole('super_admin') 
                 ? "Sélectionnez un fonctionnaire pour voir son solde" 
-                : "Aucun solde de congé disponible");
+                : "");
     }
 
     // Formulaire de création et d'édition d'un congé
@@ -184,10 +202,12 @@ class CongeResource extends Resource
                 \Filament\Forms\Components\DatePicker::make('date_depart')
                     ->label('Date de départ')
                     ->required()
+                    ->default(fn() => now()->format('Y-m-d'))
+                    ->dehydrated(true)
                     ->live()
-                    ->afterOrEqual(now())
+                    ->afterOrEqual(now()->startOfDay())
                     ->afterOrEqual(fn(\Filament\Forms\Get $get) => 
-                        self::getSelectedFonctionnaire($get)?->last_conge_date ?? now())
+                        self::getSelectedFonctionnaire($get)?->last_conge_date ?? now()->startOfDay())
                     ->live(onBlur: true)
                     ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
                         $startDate = Carbon::parse($state);
@@ -219,8 +239,28 @@ class CongeResource extends Resource
                         $set('date_retour', $returnDate->format('Y-m-d'));
                     })
                     ->rules([
-                        fn() => fn($attribute, $value, $fail) => self::validateNumberOfDays($value, $fail)
-                    ]),
+                        fn() => fn($attribute, $value, $fail) => self::validateSoldeConge($value, $fail)
+                    ])
+                    ->validationMessages([
+                        'rules' => function(\Filament\Forms\Get $get) {
+                            // For 'annuel' type, check solde
+                            if ($get('type') === 'annuel') {
+                                $fonctionnaireId = auth()->user()->hasRole('super_admin') 
+                                    ? $get('fonctionnaire_id') 
+                                    : auth()->user()->fonctionnaire_id;
+                                
+                                $fonctionnaire = \App\Models\Fonctionnaire::find($fonctionnaireId);
+                                
+                                if ($fonctionnaire) {
+                                    $requestedDays = $get('nombre_jours');
+                                    return "Vous ne pouvez pas demander {$requestedDays} jours. Votre solde de congé est de {$fonctionnaire->solde_congé} jours.";
+                                }
+                            }
+                            
+                            return "Nombre de jours invalide.";
+                        }
+                    ])
+                    ->validationAttribute('nombre de jours'),
 
                 // Date de retour
                 \Filament\Forms\Components\DatePicker::make('date_retour')
@@ -238,24 +278,39 @@ class CongeResource extends Resource
             ->columns(2);
     }
 
-    // Override record creation to ensure correct fonctionnaire
+    // Override record creation to ensure correct fonctionnaire and validate solde
     public function handleRecordCreation(array $data): Model
-{
-    $fonctionnaireId = auth()->user()->hasRole('super_admin') ? $data['fonctionnaire_id'] : auth()->user()->fonctionnaire_id;
-    $data['fonctionnaire_id'] = $fonctionnaireId;
+    {
+        // Determine fonctionnaire ID
+        $fonctionnaireId = auth()->user()->hasRole('super_admin') 
+            ? $data['fonctionnaire_id'] 
+            : auth()->user()->fonctionnaire_id;
+        $data['fonctionnaire_id'] = $fonctionnaireId;
 
-    return static::getModel()::create($data);
-}
+        // Additional validation for 'annuel' type leaves
+        if ($data['type'] === 'annuel') {
+            $fonctionnaire = \App\Models\Fonctionnaire::findOrFail($fonctionnaireId);
 
-public function handleRecordUpdate(Model $record, array $data): Model
-{
-    $fonctionnaireId = auth()->user()->hasRole('super_admin') ? $data['fonctionnaire_id'] : auth()->user()->fonctionnaire_id;
-    $data['fonctionnaire_id'] = $fonctionnaireId;
+            // Validate leave balance
+            $currentSoldeConge = $fonctionnaire->calculateCurrentSoldeConge();
+            
+            if ($data['nombre_jours'] > $currentSoldeConge) {
+                throw new \Exception("Vous ne pouvez pas demander {$data['nombre_jours']} jours. Votre solde de congé est de {$currentSoldeConge} jours.");
+            }
+        }
 
-    $record->update($data);
+        return static::getModel()::create($data);
+    }
 
-    return $record;
-}
+    public function handleRecordUpdate(Model $record, array $data): Model
+    {
+        $fonctionnaireId = auth()->user()->hasRole('super_admin') ? $data['fonctionnaire_id'] : auth()->user()->fonctionnaire_id;
+        $data['fonctionnaire_id'] = $fonctionnaireId;
+
+        $record->update($data);
+
+        return $record;
+    }
 
 
     // Configuration du tableau des congés

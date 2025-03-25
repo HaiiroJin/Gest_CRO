@@ -3,31 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attestation de travail</title>
+    <title>Attestation de travail {{ $fonctionnaire->nom }} {{ $fonctionnaire->prenom }}</title>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             window.print();
-            var currentDate = new Date();
-
-            var day = currentDate.getDate();
-            var month = currentDate.getMonth() + 1;
-            var year = currentDate.getFullYear();
-            if (parseInt(month)>=1 && parseInt(month)<=9) {
-                if (parseInt(day)>=1 && parseInt(day)<=9) {
-                    var formattedDate = '0' + day + '-' + '0' + month + '-' + year;
-                } else {
-                    var formattedDate = day + '-' + '0' + month + '-' + year;
-                }
-            } else {
-                if (parseInt(day)>=1 && parseInt(day)<=9) {
-                    var formattedDate = '0' + day + '-' + month + '-' + year;
-                } else {
-                    var formattedDate = day + '-' + month + '-' + year;
-                }
-            }
-
-            document.getElementById('currentdate').textContent = formattedDate.trim();
-            document.getElementById('year').textContent = year;
         });
     </script>
     <style>
@@ -109,9 +88,9 @@
         </p>
         <div class="infos-right">
             @if($langue === 'fr')
-            <p><strong>Oujda le </strong><span id="currentdate"></span></p>
+            <p><strong>Oujda le </strong>{{ $attestation->date_demande->format('d-m-Y') }}</p>
             @else
-            <p><strong>وجدة في </strong><span id="currentdate"></span></p>
+            <p><strong>وجدة في </strong>{{ $attestation->date_demande->format('d-m-Y') }}</p>
             @endif
         </div>
         <div class="header">
@@ -124,7 +103,7 @@
         <div class="body">
             @if($langue === 'fr')
             <p>Le Président du Conseil de la Région de l'Oriental atteste que :</p>
-            <p style="margin-left: 40px;">Prénom et Nom : <span style="margin-left: 30px;">{{ $fonctionnaire->prenom }} {{ $fonctionnaire->nom }}</span></p>
+            <p style="margin-left: 40px;">Prénom et Nom : <span style="margin-left: 30px;">{{ $fonctionnaire->nom }} {{ $fonctionnaire->prenom }}</span></p>
             <p style="margin-left: 40px;">N° C.N.I : <span style="margin-left: 30px;">{{ $fonctionnaire->cin }}</span></p>
             <p style="margin-left: 40px;">Corps : <span style="margin-left: 30px;">{{ $fonctionnaire->corps->libelle }}</span></p>
             <p style="margin-left: 40px;">Grade : <span style="margin-left: 30px;">{{ $fonctionnaire->grade->libelle }}</span></p>

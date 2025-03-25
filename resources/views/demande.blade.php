@@ -3,31 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Demande d'Attestation de Travail</title>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var currentDate = new Date();
-
-            var day = currentDate.getDate();
-            var month = currentDate.getMonth() + 1;
-            var year = currentDate.getFullYear();
-            if (parseInt(month)>=1 && parseInt(month)<=9) {
-                if (parseInt(day)>=1 && parseInt(day)<=9) {
-                    var formattedDate = year + '-0' + month + '-0' + day;
-                } else {
-                    var formattedDate = year + '-0' + month + '-' + day;
-                }
-            } else {
-                if (parseInt(day)>=1 && parseInt(day)<=9) {
-                    var formattedDate = year + '-' + month + '-0' + day;
-                } else {
-                    var formattedDate = year + '-' + month + '-' + day;
-                }
-            }
-
-            document.getElementById('date').textContent = formattedDate.trim();
-        });
-    </script>
+    <title>Demande d'Attestation Travail {{ $fonctionnaire->nom }} {{ $fonctionnaire->prenom }}</title>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             var Arabe = {{ $choix_arabe ? 'true' : 'false' }}; 
@@ -193,7 +169,7 @@
             <p><strong>رقم البطاقة التعريف الوطنية  : </strong><span>{{ $fonctionnaire->cin }}</span></p>
         </div>
         <div class="infos-left">
-            <p><strong> وجدة في : </strong><span id="date"></span></p>
+            <p><strong> وجدة في : </strong>{{ $attestation->date_demande->format('d-m-Y') }}</p>
         </div>
         <h1 class="header">الى<br><br>السيد رئيس مجلس جهة الشرق</h1>
         <div class="checkbox">

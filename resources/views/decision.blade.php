@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Decision</title>
+    <title>Decision congé {{ $conge->type === 'exceptionnel' ? 'exceptionnel' : 'annuel' }} {{ $fonctionnaire->nom }} {{ $fonctionnaire->prenom }}</title>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             window.print();

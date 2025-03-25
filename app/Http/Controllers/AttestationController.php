@@ -24,10 +24,11 @@ class AttestationController extends Controller
             abort(403, "Vous n'êtes pas autorisé à imprimer cette attestation.");
         }
 
-        $fonctionnaire = $attestation->user->fonctionnaire;
+        $fonctionnaire = $attestation->fonctionnaire;
         return view('attestation-travail', [
             'fonctionnaire' => $fonctionnaire,
-            'langue' => $attestation->langue
+            'langue' => $attestation->langue,
+            'attestation' => $attestation
         ]);
     }
 
@@ -40,12 +41,13 @@ class AttestationController extends Controller
             abort(403, "Vous n'êtes pas autorisé à télécharger cette demande.");
         }
 
-        $fonctionnaire = $attestation->user->fonctionnaire;
+        $fonctionnaire = $attestation->fonctionnaire;
         
         return view('demande', [
             'fonctionnaire' => $fonctionnaire,
             'choix_arabe' => $attestation->langue === 'ar',
             'choix_francais' => $attestation->langue === 'fr',
+            'attestation' => $attestation
         ]);
     }
 

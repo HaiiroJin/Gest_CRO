@@ -30,7 +30,7 @@ class AttestationTravail extends Model
     ];
 
     protected $casts = [
-        'date_demande' => 'date',
+        'date_demande' => 'date:Y-m-d',
         'status' => 'string',
         'langue' => 'string',
     ];
@@ -77,9 +77,15 @@ class AttestationTravail extends Model
             // If the user is a Super Admin, use the fonctionnaire_id passed in the form
             if ($user->hasRole('super_admin')) {
                 // Ensure the fonctionnaire_id comes from the form (this may be set before this)
-                // No automatic override for super admins
+                $fonctionnaire = Fonctionnaire::find($attestation->fonctionnaire_id);
+                
+                // If no fonctionnaire found, throw an error
+                if (!$fonctionnaire) {
+                    throw new \Exception('Aucun fonctionnaire sélectionné');
+                }
             } else {
                 // For non-admins, set their own fonctionnaire_id
+                $fonctionnaire = $user->fonctionnaire;
                 $attestation->fonctionnaire_id = $user->fonctionnaire_id;
             }
 
@@ -87,7 +93,6 @@ class AttestationTravail extends Model
             $attestation->status = 'en cours';
 
             // Generate attestation content when created
-            $fonctionnaire = $user->fonctionnaire;
             $htmlContent = view('attestation-travail', [
                 'fonctionnaire' => $fonctionnaire,
                 'langue' => $attestation->langue

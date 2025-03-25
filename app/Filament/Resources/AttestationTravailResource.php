@@ -34,10 +34,42 @@ class AttestationTravailResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
+            \Filament\Forms\Components\Select::make('fonctionnaire_id')
+                ->label('Fonctionnaire')
+                ->options(function () {
+                    if (auth()->user()->hasRole('super_admin')) {
+                        return Fonctionnaire::all()
+                            ->mapWithKeys(function ($fonctionnaire) {
+                                $fullName = trim($fonctionnaire->nom . ' ' . $fonctionnaire->prenom);
+                                $displayName = $fullName ?: "Fonctionnaire #" . $fonctionnaire->id;
+                                return [$fonctionnaire->id => $displayName];
+                            })
+                            ->toArray();
+                    }
+                    
+                    $user = auth()->user();
+                    $fullName = trim($user->fonctionnaire->nom . ' ' . $user->fonctionnaire->prenom);
+                    $displayName = $fullName ?: "Fonctionnaire #" . $user->fonctionnaire_id;
+                    return [$user->fonctionnaire_id => $displayName];
+                })
+                ->nullable()
+                ->live()
+                ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
+                    $set('fonctionnaire_id', $state);
+                })
+                ->hidden(fn() => !auth()->user()->hasRole('super_admin'))
+                // Ensure that for super admins, the default is null (to allow selection)
+                ->default(fn() => auth()->user()->hasRole('super_admin') 
+                    ? null 
+                    : auth()->user()->fonctionnaire_id)
+                ->columnSpan('full')
+                ->searchable(),
+
             \Filament\Forms\Components\DatePicker::make('date_demande')
                 ->label('Date de la demande')
                 ->default(now())
                 ->disabled()
+                ->format('Y-m-d')
                 ->dehydrated(true)
                 ->required(),
             \Filament\Forms\Components\Radio::make('langue')
