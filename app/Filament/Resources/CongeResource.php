@@ -22,6 +22,12 @@ use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\ForceDeleteBulkAction;
 use Filament\Tables\Actions\RestoreBulkAction;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use App\Models\Fonctionnaire;
+use App\Models\User;
+use Filament\Forms;
+use Filament\Tables;
 
 class CongeResource extends Resource
 {
@@ -33,109 +39,9 @@ class CongeResource extends Resource
     public static ?string $navigationLabel = 'Congés';
     public static function getNavigationGroup(): ?string
     {
-        return auth()->user()->hasRole('super_admin') ? 'Gestion des Demandes' : 'Demandes';
+        return Gate::allows('manage-conges') ? 'Gestion des Demandes' : 'Demandes';
     }
     public static ?int $navigationSort = 2;
-
-    // Méthode utilitaire pour obtenir le fonctionnaire sélectionné
-    private static function getSelectedFonctionnaire($get = null): ?\App\Models\Fonctionnaire
-    {
-        // For super admin, prioritize form input, then request input
-        if (auth()->user()->hasRole('super_admin')) {
-            $fonctionnaireId = null;
-            
-            // Try to get from form get method
-            if ($get) {
-                $fonctionnaireId = $get('fonctionnaire_id');
-            }
-            
-            // If not found in form, try from request
-            if (!$fonctionnaireId) {
-                $fonctionnaireId = request()->input('fonctionnaire_id');
-            }
-        } else {
-            // For regular users, use their own fonctionnaire_id
-            $fonctionnaireId = auth()->user()->fonctionnaire_id;
-        }
-        
-        return $fonctionnaireId ? \App\Models\Fonctionnaire::find($fonctionnaireId) : null;
-    }
-
-    // Méthode de validation personnalisée pour le nombre de jours
-    private static function validateSoldeConge($value, $fail)
-    {
-        // For super admin, prioritize form input, then request input
-        if (auth()->user()->hasRole('super_admin')) {
-            $fonctionnaireId = request()->input('fonctionnaire_id');
-            $congeType = request()->input('type');
-        } else {
-            $fonctionnaireId = auth()->user()->fonctionnaire_id;
-            $congeType = request()->input('type');
-        }
-        
-        // Ensure fonctionnaire ID is valid
-        if (!$fonctionnaireId) {
-            $fail("Aucun fonctionnaire sélectionné.");
-            return;
-        }
-
-        $fonctionnaire = \App\Models\Fonctionnaire::findOrFail($fonctionnaireId);
-
-        // Only validate for 'annuel' type leaves
-        if ($congeType === 'annuel') {
-            // Validate that value is a positive number
-            if (!is_numeric($value) || $value <= 0) {
-                $fail("Le nombre de jours doit être un nombre positif.");
-                return;
-            }
-
-            // Recalculate solde conge at the moment of validation
-            $currentSoldeConge = $fonctionnaire->calculateCurrentSoldeConge();
-
-            // Check solde
-            if ($value > $currentSoldeConge) {
-                $fail("Vous ne pouvez pas demander {$value} jours. Votre solde de congé est de {$currentSoldeConge} jours.");
-                return;
-            }
-        }
-    }
-
-    // Méthode pour générer le texte d'aide pour le solde de congé
-    private static function getLeaveBalanceHelperText($get): string
-    {
-        // For super admin, prioritize form input, then request input
-        if (auth()->user()->hasRole('super_admin')) {
-            $fonctionnaireId = null;
-            
-            // Try to get from form get method
-            if ($get) {
-                $fonctionnaireId = $get('fonctionnaire_id');
-            }
-            
-            // If not found in form, try from request
-            if (!$fonctionnaireId) {
-                $fonctionnaireId = request()->input('fonctionnaire_id');
-            }
-            
-            // Get the type of leave
-            $congeType = $get ? $get('type') : request()->input('type');
-        } else {
-            // For regular users, use their own fonctionnaire_id
-            $fonctionnaireId = auth()->user()->fonctionnaire_id;
-            $congeType = $get ? $get('type') : request()->input('type');
-        }
-        
-        $fonctionnaire = $fonctionnaireId 
-            ? \App\Models\Fonctionnaire::find($fonctionnaireId) 
-            : null;
-        
-        // Show balance for 'annuel' type leaves
-        return $fonctionnaire && $congeType === 'annuel'
-            ? "Solde de congé disponible : {$fonctionnaire->solde_congé} jours" 
-            : (auth()->user()->hasRole('super_admin') 
-                ? "Sélectionnez un fonctionnaire pour voir son solde" 
-                : "");
-    }
 
     // Formulaire de création et d'édition d'un congé
     public static function form(Form $form): Form
@@ -143,11 +49,11 @@ class CongeResource extends Resource
         return $form
             ->schema([
                 // Fonctionnaire selection for super admin
-                \Filament\Forms\Components\Select::make('fonctionnaire_id')
+                Forms\Components\Select::make('fonctionnaire_id')
                     ->label('Fonctionnaire')
                     ->options(function () {
-                        if (auth()->user()->hasRole('super_admin')) {
-                            return \App\Models\Fonctionnaire::all()
+                        if (Gate::allows('manage-conges')) {
+                            return Fonctionnaire::all()
                                 ->mapWithKeys(function ($fonctionnaire) {
                                     $fullName = trim($fonctionnaire->nom . ' ' . $fonctionnaire->prenom);
                                     $displayName = $fullName ?: "Fonctionnaire #" . $fonctionnaire->id;
@@ -156,162 +62,216 @@ class CongeResource extends Resource
                                 ->toArray();
                         }
                         
-                        $user = auth()->user();
-                        $fullName = trim($user->fonctionnaire->nom . ' ' . $user->fonctionnaire->prenom);
-                        $displayName = $fullName ?: "Fonctionnaire #" . $user->fonctionnaire_id;
-                        return [$user->fonctionnaire_id => $displayName];
+                        $user = Filament::auth()->user();
+                        if ($user->fonctionnaire) {
+                            $fullName = trim($user->fonctionnaire->nom . ' ' . $user->fonctionnaire->prenom);
+                            $displayName = $fullName ?: "Fonctionnaire #" . $user->fonctionnaire_id;
+                            return [$user->fonctionnaire_id => $displayName];
+                        }
+                        return [];
                     })
-                    ->nullable()
+                    //->required()
                     ->live()
-                    ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
-                        $set('fonctionnaire_id', $state);
-                    })
-                    ->hidden(fn() => !auth()->user()->hasRole('super_admin'))
-                    // Ensure that for super admins, the default is null (to allow selection)
-                    ->default(fn() => auth()->user()->hasRole('super_admin') 
+                    ->visible(fn() => Gate::allows('manage-conges'))
+                    ->default(fn() => Gate::allows('manage-conges') 
                         ? null 
-                        : auth()->user()->fonctionnaire_id)
-                    ->columnSpan('full')
+                        : Filament::auth()->user()->fonctionnaire_id)
                     ->searchable(),
 
-
                 // Date de la demande (automatiquement définie)
-                \Filament\Forms\Components\DatePicker::make('date_demande')
+                Forms\Components\DatePicker::make('date_demande')
                     ->label('Date de la demande')
                     ->default(now())
                     ->disabled()
                     ->dehydrated(true)
                     ->required()
-                    ->format('Y-m-d')
-                    ->columnSpan('full'),
+                    ->format('Y-m-d'),
 
-                // Sélection du type de congé
-                \Filament\Forms\Components\Radio::make('type')
+                // Type de congé
+                Forms\Components\Radio::make('type')
                     ->label('Type de congé')
                     ->options([
                         'annuel' => 'Congé annuel',
                         'exceptionnel' => 'Congé exceptionnel',
                     ])
-                    ->columns(2)
                     ->inline()
                     ->default('annuel')
                     ->required()
-                    ->columnSpan('full'),
+                    ->live(),
 
                 // Date de départ
-                \Filament\Forms\Components\DatePicker::make('date_depart')
+                Forms\Components\DatePicker::make('date_depart')
                     ->label('Date de départ')
                     ->required()
-                    ->default(fn() => now()->format('Y-m-d'))
-                    ->dehydrated(true)
+                    ->default(now())
                     ->live()
-                    ->afterOrEqual(now()->startOfDay())
-                    ->afterOrEqual(fn(\Filament\Forms\Get $get) => 
-                        self::getSelectedFonctionnaire($get)?->last_conge_date ?? now()->startOfDay())
-                    ->live(onBlur: true)
-                    ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
-                        $startDate = Carbon::parse($state);
-                        $numberOfDays = 1; // Default to 1 day
-                        $returnDate = self::calculateReturnDate($startDate, $numberOfDays);
-                        $set('date_retour', $returnDate->format('Y-m-d'));
-                    }),
+                    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get, $state) {
+                        if (!$state) return;
 
-                // Nombre de jours de congé
-                \Filament\Forms\Components\TextInput::make('nombre_jours')
-                    ->label('Nombre de jours')
-                    ->required()
-                    ->numeric()
-                    ->helperText(fn(\Filament\Forms\Get $get) => self::getLeaveBalanceHelperText($get))
-                    ->live()
-                    ->afterStateUpdated(function (\Filament\Forms\Set $set, \Filament\Forms\Get $get, $state) {
-                        $startDate = Carbon::parse($get('date_depart'));
-                        
-                        // If no days are input, set return date same as start date
-                        if (!$state) {
-                            $set('date_retour', $startDate->format('Y-m-d'));
-                            return;
-                        }
-                        
-                        // Validate and convert input to number
-                        $numberOfDays = max(1, (int)$state);
-                        
-                        $returnDate = self::calculateReturnDate($startDate, $numberOfDays);
+                        // Get nombre_jours if set
+                        $nombreJours = $get('nombre_jours');
+                        if (!$nombreJours) return;
+
+                        // Calculate return date
+                        $startDate = Carbon::parse($state);
+                        $returnDate = self::calculateReturnDate($startDate, (int)$nombreJours);
                         $set('date_retour', $returnDate->format('Y-m-d'));
                     })
                     ->rules([
-                        fn() => fn($attribute, $value, $fail) => self::validateSoldeConge($value, $fail)
-                    ])
-                    ->validationMessages([
-                        'rules' => function(\Filament\Forms\Get $get) {
-                            // For 'annuel' type, check solde
-                            if ($get('type') === 'annuel') {
-                                $fonctionnaireId = auth()->user()->hasRole('super_admin') 
-                                    ? $get('fonctionnaire_id') 
-                                    : auth()->user()->fonctionnaire_id;
+                        function () {
+                            return function ($attribute, $value, $fail) {
+                                $newStartDate = Carbon::parse($value);
                                 
-                                $fonctionnaire = \App\Models\Fonctionnaire::find($fonctionnaireId);
-                                
+                                // Get fonctionnaire ID
+                                $fonctionnaireId = Gate::allows('manage-conges')
+                                    ? request('data.fonctionnaire_id')
+                                    : Filament::auth()->user()->fonctionnaire_id;
+
+                                if (!$fonctionnaireId) return;
+
+                                // Check for existing congé with future return date
+                                $latestConge = Conge::where('fonctionnaire_id', $fonctionnaireId)
+                                    ->orderBy('date_retour', 'desc')
+                                    ->first();
+
+                                if ($latestConge) {
+                                    $lastReturnDate = Carbon::parse($latestConge->date_retour);
+                                    if ($newStartDate->lessThanOrEqualTo($lastReturnDate)) {
+                                        $fail("La date de départ doit être après la date de retour du congé précédent (" . $lastReturnDate->format('d/m/Y') . ").");
+                                    }
+                                }
+                            };
+                        }
+                    ]),
+
+                // Nombre de jours
+                Forms\Components\TextInput::make('nombre_jours')
+                    ->label('Nombre de jours')
+                    ->required()
+                    ->numeric()
+                    ->live()
+                    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get, $state) {
+                        if (!$state) return;
+
+                        $date_depart = Carbon::parse($get('date_depart'));
+                        $nombreJours = max(1, (int)$state);
+                        $dateRetour = self::calculateReturnDate($date_depart, $nombreJours);
+                        $set('date_retour', $dateRetour->format('Y-m-d'));
+                    })
+                    ->helperText(function (Forms\Get $get) {
+
+                        $fonctionnaireId = Gate::allows('manage-conges')
+                            ? $get('fonctionnaire_id')
+                            : Filament::auth()->user()->fonctionnaire_id;
+
+                        if (!$fonctionnaireId) {
+                            return Gate::allows('manage-conges') 
+                                ? "Sélectionnez un fonctionnaire pour voir son solde" 
+                                : "";
+                        }
+
+                        $fonctionnaire = Fonctionnaire::find($fonctionnaireId);
+                        if (!$fonctionnaire) {
+                            return "";
+                        }
+
+                        $solde = $fonctionnaire->solde_année_act ?? 22;
+                        return "Solde de congé disponible : {$solde} jours";
+                    })
+                    ->disabled(function (Forms\Get $get) {
+                        if ($get('type') !== 'annuel') {
+                            return false;
+                        }
+                        
+                        $fonctionnaireId = Gate::allows('manage-conges')
+                            ? $get('fonctionnaire_id')
+                            : Filament::auth()->user()->fonctionnaire_id;
+                            
+                        if (!$fonctionnaireId) {
+                            return false;
+                        }
+                        
+                        $fonctionnaire = Fonctionnaire::find($fonctionnaireId);
+                        if (!$fonctionnaire) {
+                            return false;
+                        }
+                        
+                        $solde = $fonctionnaire->solde_année_act ?? 22;
+                        return $solde <= 0;
+                    })
+                    ->dehydrated(function (Forms\Get $get, $state) {
+                        // Prevent form submission if nombre_jours exceeds solde
+                        if ($get('type') === 'annuel' && $state) {
+                            $fonctionnaireId = Gate::allows('manage-conges')
+                                ? $get('fonctionnaire_id')
+                                : Filament::auth()->user()->fonctionnaire_id;
+
+                            if ($fonctionnaireId) {
+                                $fonctionnaire = Fonctionnaire::find($fonctionnaireId);
                                 if ($fonctionnaire) {
-                                    $requestedDays = $get('nombre_jours');
-                                    return "Vous ne pouvez pas demander {$requestedDays} jours. Votre solde de congé est de {$fonctionnaire->solde_congé} jours.";
+                                    $solde = $fonctionnaire->solde_année_act ?? 22;
+                                    if ((int)$state > $solde) {
+                                        return false;
+                                    }
                                 }
                             }
-                            
-                            return "Nombre de jours invalide.";
                         }
-                    ])
-                    ->validationAttribute('nombre de jours'),
+                        return true;
+                    })
+                    ->rules([
+                        function () {
+                            return function ($attribute, $value, $fail) {
+                                // Only validate for 'annuel' type leaves
+                                if (request('data.type') === 'annuel') {
+                                    // Get fonctionnaire
+                                    $fonctionnaireId = Gate::allows('manage-conges')
+                                        ? request('data.fonctionnaire_id')
+                                        : Filament::auth()->user()->fonctionnaire_id;
 
-                // Date de retour
-                \Filament\Forms\Components\DatePicker::make('date_retour')
+                                    if (!$fonctionnaireId) {
+                                        $fail("Aucun fonctionnaire sélectionné.");
+                                        return;
+                                    }
+
+                                    $fonctionnaire = Fonctionnaire::find($fonctionnaireId);
+                                    if (!$fonctionnaire) {
+                                        $fail("Fonctionnaire non trouvé.");
+                                        return;
+                                    }
+
+                                    // Get current balance
+                                    $solde = $fonctionnaire->solde_congé ?? 22;
+
+                                    // Check if there is any balance available
+                                    if ($solde <= 0) {
+                                        $fail("Vous ne pouvez pas créer un congé car votre solde est épuisé (0 jours).");
+                                        return;
+                                    }
+
+                                    // Check if requested days exceed available balance
+                                    if ($value > $solde) {
+                                        $fail("Vous ne pouvez pas demander {$value} jours. Votre solde de congé est de {$solde} jours.");
+                                        return;
+                                    }
+                                }
+                            };
+                        }
+                    ]),
+
+                // Date de retour (calculée automatiquement)
+                Forms\Components\DatePicker::make('date_retour')
                     ->label('Date de retour')
                     ->required()
                     ->disabled()
-                    ->dehydrated(true)
-                    ->live(),
+                    ->dehydrated(true),
 
                 // Autorisation de sortie du territoire
-                \Filament\Forms\Components\Checkbox::make('autorisation_sortie_territoire')
+                Forms\Components\Checkbox::make('autorisation_sortie_territoire')
                     ->label('Autorisation de sortie du territoire')
                     ->default(false),
             ])
             ->columns(2);
     }
-
-    // Override record creation to ensure correct fonctionnaire and validate solde
-    public function handleRecordCreation(array $data): Model
-    {
-        // Determine fonctionnaire ID
-        $fonctionnaireId = auth()->user()->hasRole('super_admin') 
-            ? $data['fonctionnaire_id'] 
-            : auth()->user()->fonctionnaire_id;
-        $data['fonctionnaire_id'] = $fonctionnaireId;
-
-        // Additional validation for 'annuel' type leaves
-        if ($data['type'] === 'annuel') {
-            $fonctionnaire = \App\Models\Fonctionnaire::findOrFail($fonctionnaireId);
-
-            // Validate leave balance
-            $currentSoldeConge = $fonctionnaire->calculateCurrentSoldeConge();
-            
-            if ($data['nombre_jours'] > $currentSoldeConge) {
-                throw new \Exception("Vous ne pouvez pas demander {$data['nombre_jours']} jours. Votre solde de congé est de {$currentSoldeConge} jours.");
-            }
-        }
-
-        return static::getModel()::create($data);
-    }
-
-    public function handleRecordUpdate(Model $record, array $data): Model
-    {
-        $fonctionnaireId = auth()->user()->hasRole('super_admin') ? $data['fonctionnaire_id'] : auth()->user()->fonctionnaire_id;
-        $data['fonctionnaire_id'] = $fonctionnaireId;
-
-        $record->update($data);
-
-        return $record;
-    }
-
 
     // Configuration du tableau des congés
     public static function table(Table $table): Table
@@ -388,7 +348,7 @@ class CongeResource extends Resource
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => auth()->user()->hasRole('super_admin') && $record->status === 'en cours' && $record->deleted_at === null)
+                    ->visible(fn ($record) => Gate::allows('manage-conges') && $record->status === 'en cours' && $record->deleted_at === null)
                     ->action(fn ($record) => self::approuverDemande($record)),
 
                 Action::make('reject')
@@ -396,7 +356,7 @@ class CongeResource extends Resource
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => auth()->user()->hasRole('super_admin') && $record->status === 'en cours' && $record->deleted_at === null)
+                    ->visible(fn ($record) => Gate::allows('manage-conges') && $record->status === 'en cours' && $record->deleted_at === null)
                     ->action(fn ($record) => self::rejeterDemande($record)),
 
                 Action::make('download_demande')
@@ -419,7 +379,7 @@ class CongeResource extends Resource
                     ->label('Décision')
                     ->icon('heroicon-o-document')
                     ->color('primary')
-                    ->visible(fn ($record) => auth()->user()->hasRole('super_admin') && $record->deleted_at === null)
+                    ->visible(fn ($record) => Gate::allows('manage-conges') && $record->deleted_at === null)
                     ->url(fn ($record) => route('conge.decision', ['id' => $record->id]))
                     ->openUrlInNewTab(),
 
@@ -428,7 +388,7 @@ class CongeResource extends Resource
                     ->icon('heroicon-o-minus-circle')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => auth()->user()->hasRole('super_admin') && $record->deleted_at === null)
+                    ->visible(fn ($record) => Gate::allows('manage-conges') && $record->deleted_at === null)
                     ->action(fn ($record) => self::supprimerConge($record)),
 
                 Action::make('request_cancel')
@@ -440,7 +400,7 @@ class CongeResource extends Resource
                     ->modalDescription('Êtes-vous absolument certain de vouloir demander l\'annulation de cette demande de congé ? Cette action est irréversible et nécessite l\'approbation d\'un administrateur. Une fois soumise, vous ne pourrez pas annuler cette demande.')
                     ->modalSubmitActionLabel('Oui, demander l\'annulation')
                     ->modalCancelActionLabel('Annuler')
-                    ->visible(fn ($record) => !auth()->user()->hasRole('super_admin') && $record->status === 'en cours' && $record->deleted_at === null)
+                    ->visible(fn ($record) => !Gate::allows('manage-conges') && $record->status === 'en cours' && $record->deleted_at === null)
                     ->action(function ($record) {
                         // Update the record status to indicate cancellation request
                         $record->update([
@@ -469,13 +429,13 @@ class CongeResource extends Resource
             ->persistFiltersInSession()
             ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScopes([
                 SoftDeletingScope::class,
-            ]));
-    }
-
-    // Méthode pour obtenir la requête Eloquent avec filtrage par rôle
-    public static function getEloquentQuery(): Builder
-    {
-        return static::filterByUserRole(Conge::query());
+            ])->when(!Gate::allows('manage-conges'), function ($query) {
+                // For non-admin users, only show their own records
+                $user = Filament::auth()->user();
+                return $query->whereHas('fonctionnaire', function ($subQuery) use ($user) {
+                    $subQuery->where('id', $user->fonctionnaire_id);
+                });
+            }));
     }
 
     // Méthode de routage des pages
@@ -486,117 +446,41 @@ class CongeResource extends Resource
         ];
     }
 
-    // Filtrer les requêtes en fonction du rôle de l'utilisateur
-    public static function filterByUserRole(Builder $query): Builder
-    {
-        return $query->when(
-            auth()->check() && !auth()->user()->hasRole('super_admin'), 
-            fn($q) => $q->where('fonctionnaire_id', auth()->user()->fonctionnaire_id)
-        );
-    }
-
-    // Préparer les données avant la création d'un congé
-    public function prepareLeaveData(array $data): array
-    {
-        $fonctionnaireId = $data['fonctionnaire_id'];
-        $fonctionnaire = $this->findFonctionnaire($fonctionnaireId);
-        $user = $this->findAssociatedUser($fonctionnaireId);
-
-        return [
-            ...$data,
-            'user_id' => $user?->id,
-        ];
-    }
-
-    // Trouver le fonctionnaire par son ID
-    public function findFonctionnaire(int $fonctionnaireId): \App\Models\Fonctionnaire
-    {
-        return \App\Models\Fonctionnaire::findOrFail($fonctionnaireId);
-    }
-
-    // Trouver l'utilisateur associé à un fonctionnaire
-    public function findAssociatedUser(int $fonctionnaireId): ?\App\Models\User
-    {
-        return \App\Models\User::whereHas('fonctionnaire', 
-            fn($query) => $query->where('id', $fonctionnaireId)
-        )->first();
-    }
-
-    // Hook avant la création pour valider le solde de congé
-    public static function beforeCreation(Conge $record): Conge
-    {
-        // Determine the fonctionnaire
-        $fonctionnaireId = auth()->user()->hasRole('super_admin') 
-            ? $record->fonctionnaire_id 
-            : auth()->user()->fonctionnaire_id;
-        
-        $fonctionnaire = \App\Models\Fonctionnaire::find($fonctionnaireId);
-        
-        // Validate leave balance
-        if (!$fonctionnaire) {
-            throw new \Exception("No fonctionnaire selected.");
-        }
-        
-        $totalLeaveBalance = ($fonctionnaire->previous_year_balance ?? 0) + ($fonctionnaire->current_year_balance ?? 0);
-        
-        if ($totalLeaveBalance < $record->nombre_jours) {
-            throw new \Exception("The fonctionnaire does not have enough leave days available. Current balance: {$totalLeaveBalance} days.");
-        }
-
-        // Déduire les jours de congé
-        // Priorité à solde_année_prec, puis solde_année_act
-        if ($fonctionnaire->previous_year_balance >= $record->nombre_jours) {
-            $fonctionnaire->previous_year_balance -= $record->nombre_jours;
-        } else {
-            $remainingDays = $record->nombre_jours - $fonctionnaire->previous_year_balance;
-            $fonctionnaire->previous_year_balance = 0;
-            $fonctionnaire->current_year_balance -= $remainingDays;
-        }
-        
-        $fonctionnaire->save();
-
-        return $record;
-    }
-
-    // Requête de table personnalisée pour filtrer selon le rôle
-    public static function getTableQuery(): Builder
-    {
-        return parent::getTableQuery()
-            ->when(
-                auth()->user()->hasRole('super_admin'), 
-                fn($query) => $query, 
-                fn($query) => $query->where('fonctionnaire_id', auth()->user()->fonctionnaire_id)
-            );
-    }
-
     // Méthode pour approuver une demande de congé
     public static function approuverDemande(Conge $record)
     {
         // Récupérer le fonctionnaire associé à la demande
-        $fonctionnaire = \App\Models\Fonctionnaire::find($record->fonctionnaire_id);
+        $fonctionnaire = Fonctionnaire::find($record->fonctionnaire_id);
 
-        // Calculer le solde total
-        $totalLeaveBalance = ($fonctionnaire->solde_année_prec ?? 0) + ($fonctionnaire->solde_année_act ?? 0);
+        // Get current balance or initialize to 22 if not set
+        $currentBalance = $fonctionnaire->solde_année_act ?? 22;
 
         // Vérifier si le fonctionnaire a suffisamment de solde
-        if ($totalLeaveBalance < $record->nombre_jours) {
-            throw new \Exception("Insufficient leave balance.");
+        if ($currentBalance < $record->nombre_jours) {
+            throw new \Exception("Solde de congé insuffisant.");
         }
+
+        // Store original balance for notification
+        $originalBalance = $currentBalance;
+
+        // Calculate new balance
+        $newBalance = $currentBalance - $record->nombre_jours;
+            
+        // Update the fonctionnaire's balance
+        $fonctionnaire->solde_année_act = $newBalance;
+        $fonctionnaire->save();
 
         // Mettre à jour le statut
         $record->update(['status' => 'signée']);
 
-        // Déduire les jours de congé
-        // Priorité à solde_année_prec, puis solde_année_act
-        if ($fonctionnaire->solde_année_prec >= $record->nombre_jours) {
-            $fonctionnaire->solde_année_prec -= $record->nombre_jours;
-        } else {
-            $remainingDays = $record->nombre_jours - $fonctionnaire->solde_année_prec;
-            $fonctionnaire->solde_année_prec = 0;
-            $fonctionnaire->solde_année_act -= $remainingDays;
-        }
-        
-        $fonctionnaire->save();
+        // Show detailed success notification
+        \Filament\Notifications\Notification::make()
+            ->title('Congé approuvé avec succès')
+            ->body("Le congé de {$record->nombre_jours} jours a été approuvé.\n" .
+                  "Ancien solde: {$originalBalance} jours\n" .
+                  "Nouveau solde: {$newBalance} jours")
+            ->success()
+            ->send();
 
         return $record;
     }
@@ -613,10 +497,7 @@ class CongeResource extends Resource
     public static function supprimerConge(Conge $record): Conge
     {
         // Vérifier les permissions de suppression
-        $user = auth()->user();
-        
-        // Si l'utilisateur n'est pas admin, vérifier que le congé n'est pas signé
-        if (!$user->hasRole('super_admin') && $record->status === 'signée') {
+        if (!Gate::allows('manage-conges') && $record->status === 'signée') {
             throw new \Exception("You are not authorized to delete this leave.");
         }
 
@@ -698,8 +579,6 @@ class CongeResource extends Resource
 
         return $returnDate;
     }
-
-    
 
     public static function boot()
     {

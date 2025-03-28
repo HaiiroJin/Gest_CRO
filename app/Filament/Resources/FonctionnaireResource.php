@@ -241,14 +241,12 @@ class FonctionnaireResource extends Resource
                                 TextEntry::make('rib')
                                     ->label('RIB'),
                                 TextEntry::make('tel')
-                                    ->label('Téléphone')
-                                    ->columnSpan(2),
+                                    ->label('Téléphone'),
                                 TextEntry::make('email')
-                                    ->label('Email')
-                                    ->columnSpan(2),
+                                    ->label('Email'),
                                 TextEntry::make('adresse')
                                     ->label('Adresse')
-                                    ->columnSpanFull(),
+                                    ->columnSpan(2),
                             ])
                             ->columns(4),
                         Tabs\Tab::make('Situation administrative')

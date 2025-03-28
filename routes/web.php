@@ -10,6 +10,7 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/attestation', [AttestationController::class, 'show'])->name('attestation.show');
     Route::get('/attestation/demande/{id}', [AttestationController::class, 'downloadDemande'])->name('attestation.demande');
     Route::get('/attestation/print/{id}', [AttestationController::class, 'print'])->name('attestation.print');
     

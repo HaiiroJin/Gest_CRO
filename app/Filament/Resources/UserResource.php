@@ -43,7 +43,7 @@ class UserResource extends Resource
                             
                             $nom = Str::slug($selectedFonctionnaire->nom);
                             $prenom = Str::slug($selectedFonctionnaire->prenom);
-                            $email = "{$nom}.{$prenom}@cr-oriental.ma";
+                            $email = "{$prenom}.{$nom}@cr-oriental.ma";
                             $set('email', $email);
                         }
                     }),
@@ -97,6 +97,63 @@ class UserResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('create_accounts')
+                        ->label('Créer des comptes')
+                        ->icon('heroicon-o-user-plus')
+                        ->action(function (Tables\Actions\BulkAction $action) {
+                            // Get all fonctionnaires without user accounts
+                            $fonctionnairesWithoutUsers = Fonctionnaire::whereDoesntHave('user')->get();
+                            
+                            $createdCount = 0;
+                            $skippedCount = 0;
+
+                            foreach ($fonctionnairesWithoutUsers as $fonctionnaire) {
+                                // Generate email
+                                $nom = Str::slug($fonctionnaire->nom);
+                                $prenom = Str::slug($fonctionnaire->prenom);
+                                $email = "{$prenom}.{$nom}@cr-oriental.ma";
+
+                                // Check if email already exists
+                                if (User::where('email', $email)->exists()) {
+                                    $skippedCount++;
+                                    continue;
+                                }
+
+                                // Create user
+                                $user = User::create([
+                                    'name' => "{$fonctionnaire->nom} {$fonctionnaire->prenom}",
+                                    'email' => $email,
+                                    'password' => Hash::make('cro1234'),
+                                    'fonctionnaire_id' => $fonctionnaire->id,
+                                ]);
+
+                                // Assign fonctionnaire role
+                                $fonctionnaireRole = \Spatie\Permission\Models\Role::where('name', 'fonctionnaire')->first();
+                                if ($fonctionnaireRole) {
+                                    $user->assignRole($fonctionnaireRole);
+                                }
+
+                                $createdCount++;
+                            }
+
+                            // Notify user about the results
+                            if ($createdCount > 0 || $skippedCount > 0) {
+                                $message = "Comptes créés : {$createdCount}";
+                                if ($skippedCount > 0) {
+                                    $message .= " | Comptes ignorés (email existant) : {$skippedCount}";
+                                }
+                                
+                                // Use Filament's notification method
+                                \Filament\Notifications\Notification::make()
+                                    ->title($message)
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Créer des comptes utilisateur')
+                        ->modalDescription('Voulez-vous créer des comptes pour tous les fonctionnaires sans compte utilisateur ?')
+                        ->modalSubmitActionLabel('Créer des comptes'),
                 ]),
             ]);
     }

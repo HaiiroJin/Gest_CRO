@@ -5,9 +5,15 @@ namespace App\Filament\Widgets;
 use App\Models\Conge;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Gate;
 
 class CongeStatsWidget extends StatsOverviewWidget
 {
+    protected function isVisible(): bool
+    {
+        return Gate::allows('manage-conges');
+    }
+
     protected function getStats(): array
     {
         $total = Conge::count();

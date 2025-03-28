@@ -10,8 +10,9 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Permission\Traits\HasRoles;
 use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, AuthenticatableContract
 {
     use HasFactory, 
         Notifiable, 
@@ -117,5 +118,53 @@ class User extends Authenticatable implements FilamentUser
     public function getName(): string
     {
         return $this->name;
+    }
+
+    /**
+     * Get the name of the unique identifier for the user.
+     */
+    public function getAuthIdentifierName(): string
+    {
+        return 'id';
+    }
+
+    /**
+     * Get the unique identifier for the user.
+     */
+    public function getAuthIdentifier()
+    {
+        return $this->{$this->getAuthIdentifierName()};
+    }
+
+    /**
+     * Get the password for the user.
+     */
+    public function getAuthPassword(): string
+    {
+        return $this->password;
+    }
+
+    /**
+     * Get the token value for the "remember me" session.
+     */
+    public function getRememberToken(): string
+    {
+        return $this->{$this->getRememberTokenName()};
+    }
+
+    /**
+     * Set the token value for the "remember me" session.
+     */
+    public function setRememberToken($value): void
+    {
+        $this->{$this->getRememberTokenName()} = $value;
+    }
+
+    /**
+     * Get the column name for the "remember me" token.
+     */
+    public function getRememberTokenName(): string
+    {
+        return 'remember_token';
     }
 }

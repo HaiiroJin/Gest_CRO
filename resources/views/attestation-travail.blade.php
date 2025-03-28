@@ -81,7 +81,7 @@
     <div class="attestation">
         <p class="infos-left">
             @if($langue === 'fr')
-            <strong class="multiline-text">ROYAUME DU MAROC<br>MINISTERE DE L’INTERIEUR<br>WILAYA DE LA REGION DE L’ORIENTAL<br>REGION DE L’ORIENTAL<br>Direction Générale des Services<br>Direction des Affaires Administratives et Juridiques<br>Division des Ressources Humaines<br>et de l’Ingénierie de la Formation<br>Service de Gestion des Affaires du Personnel<br>N° : . . . .. . . . .<span id="year"></span></strong>
+            <strong class="multiline-text">ROYAUME DU MAROC<br>MINISTERE DE L'INTERIEUR<br>WILAYA DE LA REGION DE L’ORIENTAL<br>REGION DE L’ORIENTAL<br>Direction Générale des Services<br>Direction des Affaires Administratives et Juridiques<br>Division des Ressources Humaines<br>et de l’Ingénierie de la Formation<br>Service de Gestion des Affaires du Personnel<br>N° : . . . .. . . . .<span id="year"></span></strong>
             @else
             <strong class="multiline-text">المملكة المغربية<br>وزارة الداخلية<br>ولاية جهة الشرق<br>جهة الشرق<br>المديرية العامة للمصالح<br>مديرية الشؤون الإدارية والقانونية<br>قسم الموارد البشرية<br>وهندسة التكوين<br>مصلحة تدبير شؤون الموظفين<br>عدد : . . . .. . . . .<span id="year"></span></strong>
             @endif

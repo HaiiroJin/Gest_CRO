@@ -10,6 +10,7 @@ use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Fonctionnaire;
 use App\Models\User;
+use Illuminate\Support\Facades\Gate;
 
 class AttestationTravail extends Model
 {
@@ -75,7 +76,7 @@ class AttestationTravail extends Model
             $user = Filament::auth()->user();
             
             // If the user is a Super Admin, use the fonctionnaire_id passed in the form
-            if ($user->hasRole('super_admin')) {
+            if (Gate::allows('manage-attestations')) {
                 // Ensure the fonctionnaire_id comes from the form (this may be set before this)
                 $fonctionnaire = Fonctionnaire::find($attestation->fonctionnaire_id);
                 
@@ -95,7 +96,8 @@ class AttestationTravail extends Model
             // Generate attestation content when created
             $htmlContent = view('attestation-travail', [
                 'fonctionnaire' => $fonctionnaire,
-                'langue' => $attestation->langue
+                'langue' => $attestation->langue,
+                'attestation' => $attestation
             ])->render();
 
             $attestation->attestation = $htmlContent;

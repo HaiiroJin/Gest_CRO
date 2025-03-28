@@ -9,9 +9,15 @@ use App\Models\Division;
 use App\Models\Service;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Gate;
 
 class FonctionnaireStatsWidget extends StatsOverviewWidget
 {
+    protected function isVisible(): bool
+    {
+        return Gate::allows('manage-conges');
+    }
+
     protected function getStats(): array
     {
         $total = Fonctionnaire::count();

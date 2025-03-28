@@ -37,4 +37,9 @@ class Dossier extends Model
     {
         return self::pluck('nom_dossier', 'id')->toArray();
     }
+
+    public static function getDossiersOptions(): array
+    {
+        return self::pluck('nom_dossier', 'id')->toArray();
+    }
 }

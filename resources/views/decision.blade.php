@@ -277,13 +277,17 @@
 
         .infos-left {
             font-family: Arial, sans-serif;
-            font-size: 15px;
             margin-{{ $autorisation_sortie_territoire ? 'left' : 'right' }}: 60px;
             margin-top: 5px;
             direction: {{ $autorisation_sortie_territoire ? 'ltr' : 'rtl' }};
             display: flex;
             flex-direction: column;
             align-items: flex-{{ $autorisation_sortie_territoire ? 'end' : 'start' }};
+            font-size: 17px;
+            margin-left: 40px;
+            margin-top: 5px;
+            flex-direction: column;
+            align-items: flex-end;
         }
 
         .multiline-text {
@@ -360,12 +364,12 @@
         </p>
         <div class="infos-left">
             @if($autorisation_sortie_territoire)
-            <p><strong>Oujda le </strong><span id="currentdate"></span></p>
+            <p><strong>Oujda le </strong><span>{{ $conge->date_demande }} </span></p>
             @else
-            <p><strong>وجدة في </strong><span id="currentdate"></span></p>
+            <p><strong>وجدة في </strong><span > {{ $conge->date_demande }} </span></p>
             @endif
         </div>
-        <p class="header">
+        <p class="header"></p>
             @if($autorisation_sortie_territoire)
             <strong>DÉCISION</strong>
             @else
