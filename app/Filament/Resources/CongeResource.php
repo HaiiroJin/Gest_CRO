@@ -175,7 +175,7 @@ class CongeResource extends Resource
                             return "";
                         }
 
-                        $solde = $fonctionnaire->solde_année_act ?? 22;
+                        $solde = ($fonctionnaire->solde_année_prec + $fonctionnaire->solde_année_act) ?? 22;
                         return "Solde de congé disponible : {$solde} jours";
                     })
                     ->disabled(function (Forms\Get $get) {
@@ -538,46 +538,48 @@ class CongeResource extends Resource
     // Méthode pour calculer la date de retour en excluant les week-ends et jours fériés
     public static function calculateReturnDate(Carbon $startDate, int $numberOfDays): Carbon
     {
-        $returnDate = clone $startDate;
-        $daysAdded = 0;
+        $currentDate = clone $startDate;
+        $daysToAdd = $numberOfDays;
 
-        // Récupérer tous les jours fériés pour l'année en cours
+        // Récupérer tous les jours fériés pour l'année en cours et l'année suivante
         $holidays = \App\Models\JoursFeries::query()
-            ->whereYear('date_depart', $returnDate->year)
-            ->get()
-            ->flatMap(function($holiday) {
-                // Générer toutes les dates entre date_depart et date_fin
-                $dates = [];
-                $currentDate = Carbon::parse($holiday->date_depart);
-                $endDate = Carbon::parse($holiday->date_fin);
-
-                while ($currentDate->lte($endDate)) {
-                    $dates[] = $currentDate->format('Y-m-d');
-                    $currentDate->addDay();
-                }
-
-                return $dates;
+            ->where(function($query) use ($currentDate) {
+                $query->whereYear('date_depart', $currentDate->year)
+                      ->orWhereYear('date_depart', $currentDate->copy()->addYear()->year);
             })
-            ->unique()
+            ->get()
+            ->mapWithKeys(function($holiday) {
+                // Convertir la date en format string pour l'utiliser comme clé
+                $dateKey = Carbon::parse($holiday->date_depart)->format('Y-m-d');
+                return [$dateKey => (int)$holiday->nombre_jours];
+            })
             ->toArray();
 
-        while ($daysAdded < $numberOfDays) {
-            $returnDate->addDay();
+        // Calculer la date de retour
+        while ($daysToAdd > 0) {
+            $currentDate->addDay();
+            $currentDateStr = $currentDate->format('Y-m-d');
 
-            // Vérifier si c'est un week-end (samedi ou dimanche)
-            if ($returnDate->isWeekend()) {
+            // Vérifier si c'est un weekend
+            if ($currentDate->isWeekend()) {
                 continue;
             }
 
             // Vérifier si c'est un jour férié
-            if (in_array($returnDate->format('Y-m-d'), $holidays)) {
-                continue;
+            foreach ($holidays as $holidayStart => $holidayDays) {
+                $holidayStartDate = Carbon::parse($holidayStart);
+                $holidayEndDate = $holidayStartDate->copy()->addDays($holidayDays - 1);
+
+                // Si la date courante est dans la période du jour férié
+                if ($currentDate->between($holidayStartDate, $holidayEndDate)) {
+                    continue 2; // Continue la boucle principale
+                }
             }
 
-            $daysAdded++;
+            $daysToAdd--;
         }
 
-        return $returnDate;
+        return $currentDate;
     }
 
     public static function boot()
