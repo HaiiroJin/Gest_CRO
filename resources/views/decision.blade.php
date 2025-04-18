@@ -364,9 +364,9 @@
         </p>
         <div class="infos-left">
             @if($autorisation_sortie_territoire)
-            <p><strong>Oujda le </strong><span>{{ $conge->date_demande }} </span></p>
+            <p><strong>Oujda le </strong><span></span></p>
             @else
-            <p><strong>وجدة في </strong><span > {{ $conge->date_demande }} </span></p>
+            <p><strong>وجدة في </strong><span></span></p>
             @endif
         </div>
         <p class="header"></p>

@@ -17,6 +17,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Filament\Tables\Actions\ExportAction;
+use App\Filament\Exports\FonctionnaireExporter;
+use Filament\Tables\Actions\ExportBulkAction;
 
 class FonctionnaireResource extends Resource
 {
@@ -175,20 +178,50 @@ class FonctionnaireResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(FonctionnaireExporter::class),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('nom')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('prenom')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('matricule_aujour')
                     ->label('Matricule')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('corps.libelle')
                     ->label('Corps')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('grade.libelle')
                     ->label('Grade')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('solde_congé')
+                    ->label('Solde Congé')
+                    ->getStateUsing(fn ($record) => $record->solde_congé)
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('direction.libelle')
+                    ->label('Direction')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('division.libelle')
+                    ->label('Division')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('service.libelle')
+                    ->label('Service')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
@@ -210,6 +243,8 @@ class FonctionnaireResource extends Resource
                     Tables\Actions\ForceDeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
                 ]),
+                ExportBulkAction::make()
+                ->exporter(FonctionnaireExporter::class)
             ])
             ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScopes([
                 SoftDeletingScope::class,

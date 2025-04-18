@@ -88,9 +88,9 @@
         </p>
         <div class="infos-right">
             @if($langue === 'fr')
-            <p><strong>Oujda le </strong>{{ $attestation->date_demande->format('d-m-Y') }}</p>
+            <p><strong>Oujda le </strong></p>
             @else
-            <p><strong>وجدة في </strong>{{ $attestation->date_demande->format('d-m-Y') }}</p>
+            <p><strong>وجدة في </strong></p>
             @endif
         </div>
         <div class="header">

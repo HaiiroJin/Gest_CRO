@@ -169,7 +169,7 @@
             <p><strong>رقم البطاقة التعريف الوطنية  : </strong><span>{{ $fonctionnaire->cin }}</span></p>
         </div>
         <div class="infos-left">
-            <p><strong> وجدة في : </strong>{{ $attestation->date_demande->format('d-m-Y') }}</p>
+            <p><strong> وجدة في : </strong></p>
         </div>
         <h1 class="header">الى<br><br>السيد رئيس مجلس جهة الشرق</h1>
         <div class="checkbox">
