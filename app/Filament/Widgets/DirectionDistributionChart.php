@@ -7,6 +7,10 @@ use Filament\Widgets\ChartWidget;
 
 class DirectionDistributionChart extends ChartWidget
 {
+    public static function canView(): bool
+    {
+        return auth()->user()?->hasRole('super_admin');
+    }
     protected static ?string $heading = 'Distribution des Fonctionnaires par Direction';
 
     protected static ?int $sort = 3;

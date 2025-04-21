@@ -9,13 +9,12 @@ use App\Models\Division;
 use App\Models\Service;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\Facades\Gate;
 
 class FonctionnaireStatsWidget extends StatsOverviewWidget
 {
-    protected function isVisible(): bool
+    public static function canView(): bool
     {
-        return Gate::allows('manage-conges');
+        return auth()->user()?->hasRole('super_admin');
     }
 
     protected function getStats(): array
